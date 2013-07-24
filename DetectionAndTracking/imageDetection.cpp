@@ -139,6 +139,287 @@ void showDebugWindows(Mat imgGray, Mat imgBin, Mat imgDbg, std::string name, int
 	}
 }
 
+bool verifyTriplet(std::vector<std::vector<int>> indexMatching,
+	std::vector <std::vector <int> > calculatedPointPair,
+	std::vector <std::vector <int> > modelPointPair, 
+	Math::Vector<3> modelTriplet,
+	Math::Vector<3> imageTriplet){
+
+
+		
+		int modelPt2, modelPt3 ; 
+		modelPt2 = modelTriplet[1];
+		modelPt3 = modelTriplet[2];
+		int imagePt2, imagePt3 ; 
+		imagePt2 = imageTriplet[1]; 
+		imagePt3 = imageTriplet[2]; 
+
+		for (int i = 0 ; i < indexMatching.size() ; i++ ){
+		
+			int modelPairID = indexMatching.at(i).at(0); // Represents an ID of model point pair 
+			int imagePairID = indexMatching.at(i).at(1); // Represents corresponding ID of image point pair
+			int modelPoint1 =  modelPointPair.at(modelPairID).at(0); 
+			int modelPoint2 = modelPointPair.at(modelPairID).at(1) ; 
+			if( (modelPoint1== modelPt2) && (modelPoint2 == modelPt3) ) {
+			
+				if ( ( (calculatedPointPair.at(imagePairID).at(0) == imagePt2) && (calculatedPointPair.at(imagePairID).at(1) == imagePt3) ) 
+					|| ( (calculatedPointPair.at(imagePairID).at(1) == imagePt2) && (calculatedPointPair.at(imagePairID).at(0) == imagePt3) ) ){
+					return true; 
+				}
+			} 	
+		
+		} 
+
+
+	return false; 
+} 
+
+void filterPointPair( std::vector<std::vector<int>> indexMatching, 
+	std::vector <std::vector <int> > calculatedPointPair,
+	std::vector <std::vector <int> > modelPointPair,
+	std::vector<std::vector<int>> &modelImagePair, 
+	multimap<int ,int > &matchingMap){
+
+	for(int i = 0; i < indexMatching.size() ; i++){
+			int model = indexMatching.at(i).at(0); 
+			int image = indexMatching.at(i).at(1); 
+			LOG4CPP_INFO(logger, " " << model <<  ": Model Pair " << modelPointPair.at(model).at(0) << "," << modelPointPair.at(model).at(1)
+				<< " " << image << " : Image Pair " << calculatedPointPair.at(image).at(0) << "," << calculatedPointPair.at(image).at(1) 
+				<< " : Normal " << indexMatching.at(i).at(2) ); 
+	}
+	int modelPairID, imagePairID,nextModelPairID,nextImagePairID; 
+	for (int i = 0 ; i < indexMatching.size(); i++){ // For each pair checking 
+	
+		Math::Vector<3> modelTriplet; 
+		Math::Vector<3> imageTriplet; 
+
+		for (int j = i+1 ; j < indexMatching.size() ; j ++ ) {
+		
+			modelPairID = indexMatching.at(i).at(0); // Represents an ID of model point pair 
+			imagePairID = indexMatching.at(i).at(1); // Represents corresponding ID of image point pair
+			nextModelPairID = indexMatching.at(j).at(0); // Represents an ID of next model point pair 
+			nextImagePairID = indexMatching.at(j).at(1); // Represents an ID of next image point pair  
+			
+			int modelPt1, modelPt2, modelPt3, imagePt1, imagePt2 , imagePt3; 
+			// If either of model or Image IDs are same then matching has no point
+			// ie if Model ID  0(pt1,pt2) maps to two different image pair ID say 1(i1,i2) and 2(i1',i2') we wont be able to conclude matching result 
+			// same if a same image pair matches with 2 model pair we are left with ambiguity. 
+			if( (modelPairID != nextModelPairID) && (imagePairID != nextImagePairID) ) {
+				// Check if first element of first and second pair is same ( other two will never be same , algorithm constrains as 
+				// order is set up in ascending order of model points ) 
+				// How it helps 
+				// e.g. 0( 1005,1008) & 1(1005,1009) bin 00  can be only type possible : Verification pair 1008, 1009  
+				if( (modelPointPair.at(modelPairID).at(0) == modelPointPair.at(nextModelPairID).at(0) ) ){ // bin 00  							
+					modelPt1 = modelPointPair.at(modelPairID).at(0); // common 
+					modelPt2 = modelPointPair.at(modelPairID).at(1);
+					modelPt3 = modelPointPair.at(nextModelPairID).at(1);
+
+					// e.g. 0 (1 ,2)  &  1 ( 1, 3)  Lets say binary 00 
+					if( (calculatedPointPair.at(imagePairID).at(0) == calculatedPointPair.at(nextImagePairID).at(0) )) { 
+						
+						imagePt1 = calculatedPointPair.at(imagePairID).at(0); // common first 
+						imagePt2 = calculatedPointPair.at(imagePairID).at(1);
+						imagePt3 = calculatedPointPair.at(nextImagePairID).at(1);
+					}
+					// e.g. 0 ( 1,2) & 1 ( 0 ,1 ) Lets say binary 01 
+					else if(	(calculatedPointPair.at(imagePairID).at(0) == calculatedPointPair.at(nextImagePairID).at(1) )	) {
+					
+						imagePt1 = calculatedPointPair.at(imagePairID).at(0); // common first 
+						imagePt2 = calculatedPointPair.at(imagePairID).at(1);
+						imagePt3 = calculatedPointPair.at(nextImagePairID).at(0);
+					}
+					// e.g. 0 ( 1,2) & 1 ( 2 , 3  ) Lets say binary 10 
+					else if(	(calculatedPointPair.at(imagePairID).at(1) == calculatedPointPair.at(nextImagePairID).at(0)	)	) {
+					
+						imagePt1 = calculatedPointPair.at(imagePairID).at(1); // common first 
+						imagePt2 = calculatedPointPair.at(imagePairID).at(0);
+						imagePt3 = calculatedPointPair.at(nextImagePairID).at(1);
+					}
+					// e.g. 0 ( 1, 4) & 1 ( 3 , 4 ) Lets say binary 11 
+					else if( (calculatedPointPair.at(imagePairID).at(1) == calculatedPointPair.at(nextImagePairID).at(1) ) ) {
+					
+						imagePt1 = calculatedPointPair.at(imagePairID).at(1);  // common point 
+						imagePt2 = calculatedPointPair.at(imagePairID).at(0);
+						imagePt3 = calculatedPointPair.at(nextImagePairID).at(0);
+					}
+
+					else {
+					
+						LOG4CPP_DEBUG(logger, " Pairs considered for image points have no point in common "); 
+						continue; 
+					}
+
+
+
+					modelTriplet.clear();
+					imageTriplet.clear();
+					modelTriplet[0] = (modelPt1);
+					modelTriplet[1] = (modelPt2);
+					modelTriplet[2] = (modelPt3);
+					imageTriplet[0] = (imagePt1); 
+					imageTriplet[1] =(imagePt2); 
+					imageTriplet[2] =(imagePt3); 
+
+
+					
+					if( (matchingMap.find(imagePt1) == matchingMap.end() ) // is present 
+							|| (matchingMap.find(imagePt2) == matchingMap.end() ) // or is present 
+							|| (matchingMap.find(imagePt3) == matchingMap.end() ) ) { // or is present 
+
+								if( verifyTriplet(indexMatching, calculatedPointPair, modelPointPair, modelTriplet, imageTriplet ) ) {
+									LOG4CPP_INFO(logger, " Model triple : " << modelTriplet << ": Image triple : " << imageTriplet); 
+															
+									if (matchingMap.find(imagePt1) == matchingMap.end()) // if not present at all 
+										matchingMap.insert(std::pair<int,int>( imagePt1,modelPt1 ));
+									else if (matchingMap.find(imagePt1)->second != modelPt1) // if same key is not pushed 
+										matchingMap.insert(std::pair<int,int>( imagePt1,modelPt1 ));
+
+									if(matchingMap.find(imagePt2) == matchingMap.end() ) // if not present at all 
+										matchingMap.insert(std::pair<int,int>( imagePt2,modelPt2 ));
+									else if (matchingMap.find(imagePt2)->second != modelPt2) // only if same key is not pushed 
+										matchingMap.insert(std::pair<int,int>( imagePt2,modelPt2 ));
+
+
+									if (matchingMap.find(imagePt3) == matchingMap.end() ) // if not present 
+										matchingMap.insert(std::pair<int,int>( imagePt3,modelPt3 ));
+									else if (matchingMap.find(imagePt3)->second != modelPt3) // if different value 
+										matchingMap.insert(std::pair<int,int>( imagePt3,modelPt3 ));
+								}
+					}
+
+				} // assign model and image points for triplet 
+				// e.g. 0( 1005,1008) & 1(1004,1005) bin 01, not possible due to ascending scheme  
+				// e.g. 0( 1005,1008) & 1(1008,10013) bin 10 , 1008 is common but verification pair is 1005/1013 which has already been considered 
+				// e.g. 0( 1005,1008) & 1(1006,1008) bin 11, 1008 is common but verification pair is 1005/1006 which has been considered 
+				else{
+					LOG4CPP_DEBUG(logger, " First element of given pairs is not same, common point must be first  " ); 
+				}
+			
+			} // model Id Check 
+			else {		
+				LOG4CPP_DEBUG(logger, " Same model or Image point pair!! Cant generate triplet " );			
+			}
+
+		
+		}
+	
+	
+	
+	} 
+
+
+
+
+}
+
+void getPairCombinations(std::vector <int> pointIDs, std::vector< std::vector <int> > &pairCombination){
+
+	int noOfPoints = pointIDs.size(); 
+	std::vector<int> tempPair; 
+
+	for(int i =0 ; i < noOfPoints ; i++ ){
+	
+		for(int j = i+1 ; j < noOfPoints ; j++ ){
+		
+			tempPair.clear();
+			tempPair.push_back(pointIDs.at(i)); 
+			tempPair.push_back(pointIDs.at(j)); 
+			pairCombination.push_back(tempPair); 
+
+		}
+
+	
+	}
+
+}
+
+void getPairCombinations(int pointIDSize, std::vector< std::vector <int> > &pairCombination){
+
+	
+	std::vector<int> tempPair; 
+
+	for(int i =0 ; i < pointIDSize ; i++ ){
+	
+		for(int j = i+1 ; j < pointIDSize ; j++ ){
+		
+			tempPair.clear();
+			tempPair.push_back(i); 
+			tempPair.push_back(j); 
+			pairCombination.push_back(tempPair); 
+
+		}
+
+	
+	}
+
+}
+
+
+bool findMatchingPointPairs(std::vector<std::vector<double> >  calculatedDistInvariants,
+	std::vector<std::vector<double> > calculatedAngleInvariants,
+	std::vector<std::vector<double> >  modelDistInvariants,
+	std::vector< std::vector<double> > modelAngleInvariants,
+	std::vector<std::vector <int> > &indexMatching,
+	double distMatchingThresh = 20,
+	double angleMatchingThresh = 5 ){
+
+
+		if( (calculatedDistInvariants.size() != calculatedAngleInvariants.size() ) || 
+			( modelDistInvariants.size() != modelAngleInvariants.size() ) ){
+		
+			LOG4CPP_ALERT(logger, "Size of the Invariants don't match !! Wathcout. ");
+
+		}
+		LOG4CPP_DEBUG(logger, "Matching Results : \n "); 
+		std::vector<int> matchingPair; 
+
+		for(int i = 0 ; i < modelDistInvariants.size() ; i ++ ){ // Loop for all model Point invariants 
+			
+			for(int j = 0 ; j < calculatedDistInvariants.size() ; j ++ ){ // loop for all calculated point invariants 
+			
+					// Check for matching distance 
+				double distAvg = calculatedDistInvariants.at(j).at(0)+calculatedDistInvariants.at(j).at(1)+
+									calculatedDistInvariants.at(j).at(2) + calculatedDistInvariants.at(j).at(3); 
+				distAvg = distAvg/4; 
+				double distDiff = abs((modelDistInvariants.at(i).at(0) - distAvg) ); 
+
+				if( distDiff < distMatchingThresh ) {
+
+					bool foundMatch = false; 
+					double lastDiff = 100; 
+					int normalIndex = 0; 
+					for(int k = 0 ; k < calculatedAngleInvariants.at(j).size(); k++){
+					
+						double angleDiff = abs( modelAngleInvariants.at(i).at(0) - calculatedAngleInvariants.at(j).at(k) ) ; 		
+						if( angleDiff < angleMatchingThresh && angleDiff < lastDiff){
+
+							lastDiff = angleDiff ; 
+							normalIndex = k ; 
+							foundMatch = true; 
+						
+						} // taking minimum
+					} // loop for angle matching withing 4 invariants 
+					if( foundMatch == true) {
+							matchingPair.clear(); 
+							matchingPair.push_back(i); // Model Point Index 
+							matchingPair.push_back(j); // Calculated Point Index 
+							matchingPair.push_back(normalIndex); // Normal 
+							indexMatching.push_back(matchingPair); // Saving the whole match 
+							LOG4CPP_DEBUG(logger, " Model : " << i << " Calculated " << j << " Normal : " << normalIndex ); 
+					}
+				
+				} // loop end for distance matching 
+				
+			
+			} // loop end for all calculated point iteration 
+		
+		} // loop end for all model point interation 
+
+
+	
+	return TRUE; 
+
+}
 
 
 void initLogging()
@@ -196,7 +477,7 @@ bool loadModelPoints(std::string filePath,
 
 
 			try {
-				LOG4CPP_INFO( logger, "ID: "  << tokenList[0] << " \n Vector: " << tokenList[1] << "; " << tokenList[2] << "; " << tokenList[3] << "; " <<
+				LOG4CPP_DEBUG( logger, "ID: "  << tokenList[0] << " \n Vector: " << tokenList[1] << "; " << tokenList[2] << "; " << tokenList[3] << "; " <<
 								"\n Normal: "  << tokenList[4] << "; " << tokenList[5] << "; " << tokenList[6] << "; " << "\n Radius : " << tokenList[7]);
 
 				
@@ -261,7 +542,10 @@ bool readSettingsFile( std::string &filePath, CIRCULAR_MARKER_SETTINGS &markerDe
 
 }
 
-bool writeInvariantFile(std::string &fileName, std::vector <std::vector <double >> distInvariants, std::vector <std::vector <double >> angleInvariants, double noOfPoints){
+bool writeInvariantFile(std::string &fileName, 
+		std::vector <std::vector <double >> distInvariants, 
+		std::vector <std::vector <double >> angleInvariants, 
+		double noOfPoints){
 		
 		ofstream outfile; 
 
@@ -324,6 +608,7 @@ return TRUE;
 }
 
 
+
 int main( int argc, char ** argv )
 {
 	initLogging();
@@ -347,16 +632,16 @@ int main( int argc, char ** argv )
 	//filePath = "D:/Extend3D/Images/Nikon_Images/circulartestimages";
 	//filePath = "L:/Softwares/Installed_Softwares/EXTEND3D/CircularMarkerTrackingUtility/images/wl_cube/left";
 	//filePath = "D:/Extend3D/Images/CircularBoard/CalibBoardImages";
-	 filePath = "D:/Extend3D/Images/CircularBoard/4CircleBoard"; data3DFileName = "/3DData_9.txt";
+	 // filePath = "D:/Extend3D/Images/CircularBoard/4CircleBoard"; data3DFileName = "/3DData_9.txt";
 	// filePath = "D:/Extend3D/Images/CircularBoard/MultipleMarkerNonSymmetric"; data3DFileName = "/3DData_9.txt";
 	//filePath = "D:/Extend3D/Images/CircularBoard/MultiSizeBoard"; 
 	//filePath = "D:/Extend3D/Images/CircularBoard/MultipleMarker2";
-	// filePath = "D:/Extend3D/Images/CarData12";  data3DFileName = "/CarModel3DData_12.txt";
-	//filePath = "D:/Extend3D/Images/CarData5_8"; data3DFileName = "/3DData_5.txt"; data3DFileName = "/3DData_8.txt";
+	 filePath = "D:/Extend3D/Images/CarData12";  data3DFileName = "/CarModel3DData_12.txt";
+	/*filePath = "D:/Extend3D/Images/CarData5_8";*/ /*data3DFileName = "/CarModel3DData_5.txt";*/ /*data3DFileName = "/CarModel3DData_8.txt";*/
 
 	boost::filesystem::path dtbFile (filePath);
 	if (!boost::filesystem::exists( dtbFile ) || !boost::filesystem::is_directory( dtbFile )) {
-		cout << "Database not found!" << endl ;
+		LOG4CPP_ERROR(logger, "Database not found!" ) ;
 		return 0;
 	}
 
@@ -367,7 +652,7 @@ int main( int argc, char ** argv )
 	std::vector <double> markerSize; 
 	std::list < boost::filesystem3::path > files;
 	std::list < boost::filesystem3::path >::iterator fileIt;
-	std::cout << "Globbing files from directory...";
+	LOG4CPP_INFO(logger, "Globbing files from directory...");
 	Ubitrack::Util::globFiles (filePath, Util::FilePattern::PATTERN_OPENCV_IMAGE_FILES, files );
 	fileIt = files.begin();
 
@@ -403,22 +688,25 @@ int main( int argc, char ** argv )
 	std::string model3DDataFile, modelInvariantFile; 
 	model3DDataFile = filePath.data(); 
 	model3DDataFile.append(data3DFileName);
+	std::vector < std::vector <double> > modelDistInvariants;
+	std::vector < std::vector <double> > modelAngleInvariants;
+	std::vector <std::vector <int>> modelPointPair; 
 	// Loading 3D points ; Note : MarkerSize is in Diameters, Use Radius 
 	if( loadModelPoints(model3DDataFile,modelPoints,modelPointNormals,modelPointIDs, markerSize) ){
 
 		modelInvariantFile = filePath.data();
 		modelInvariantFile.append("/modelInvariantData.csv"); // Add text for unique name : Path/InvariantData_		
-		std::vector < std::vector <double> > modelDistInvariants;
-		std::vector < std::vector <double> > modelangleInvariants;
+
+		getPairCombinations(modelPointIDs,modelPointPair); 
 
 		if(! calculateConicDistanceInvariants(modelPoints, modelDistInvariants)){
 			LOG4CPP_ERROR(logger,"Calculating Invariants Failed");
 		} 
-		if( !calculateConicAngleInvariants(modelPointNormals,modelangleInvariants)) {
+		if( !calculateConicAngleInvariants(modelPointNormals,modelAngleInvariants)) {
 			LOG4CPP_ERROR(logger,"Calculating Invariants Failed");
 		} 
 
-		if(!writeInvariantFile(modelInvariantFile,modelDistInvariants,modelangleInvariants,modelPoints.size())	){
+		if(!writeInvariantFile(modelInvariantFile,modelDistInvariants,modelAngleInvariants,modelPoints.size())	){
 			LOG4CPP_ERROR(logger,"Invariant File Writing Error ");
 		}
 	}
@@ -451,6 +739,7 @@ int main( int argc, char ** argv )
 		img = imread( fileIt->string() );
 		// Extract file name from path : "abc.png" from path "D:/xxx/xxx/ddhe/abc.png"
 		boost::filesystem3::path temp = fileIt->filename().leaf(); 
+		LOG4CPP_INFO(logger, " File Name : " << temp); 
 
 		debugImageName.clear();
 		debugImageName = debugPath.data(); 
@@ -698,19 +987,40 @@ int main( int argc, char ** argv )
 
 		std::vector< std::vector <double> > calculatedDistInvariants; 
 		std::vector< std::vector <double> > calculatedAngleInvariants; 
+		std::vector <std::vector <int> > calculatedPointPair; 
+		std::vector<std::vector<int>>  indexMatching; 
+		multimap<int ,int > matchingMap; 
+		int distThresh = 10; 
+		int angleThresh = 5 ; 
+		std::vector<std::vector<int>>  modelImageMatchedPair; 
 
-		if(! calculateConicDistanceInvariants(centerPoints, calculatedDistInvariants)){
-			LOG4CPP_ERROR(logger,"Calculating Invariants Failed");
-		} 
-		if( !calculateConicAngleInvariants(surfaceNormals,calculatedAngleInvariants)) {
-			LOG4CPP_ERROR(logger,"Calculating Invariants Failed");
-		} 
+		if( midPoints.size() != 0) {
+			getPairCombinations(midPoints.size(),calculatedPointPair); 
 
-		if(!writeInvariantFile(invDataFileName,calculatedDistInvariants,calculatedAngleInvariants,centerPoints.size())	){
-			LOG4CPP_ERROR(logger,"Invariant File Writing Error ");
-		}
+			if(! calculateConicDistanceInvariants(centerPoints, calculatedDistInvariants)){
+				LOG4CPP_ERROR(logger,"Calculating Invariants Failed");
+			} 
+			if( !calculateConicAngleInvariants(surfaceNormals,calculatedAngleInvariants)) {
+				LOG4CPP_ERROR(logger,"Calculating Invariants Failed");
+			} 
+
+			if(!writeInvariantFile(invDataFileName,calculatedDistInvariants,calculatedAngleInvariants,centerPoints.size())	){
+				LOG4CPP_ERROR(logger,"Invariant File Writing Error ");
+			}
 		
 
+			// Find matching based on invariants , Hypothesis for matching pairs 
+			findMatchingPointPairs(calculatedDistInvariants,calculatedAngleInvariants,modelDistInvariants,modelAngleInvariants,indexMatching,distThresh,angleThresh);
+
+			// Filter the matching for final 2D-3D match result 
+			filterPointPair(indexMatching,calculatedPointPair,modelPointPair, modelImageMatchedPair, matchingMap ); 
+		}
+
+		else{
+
+			LOG4CPP_DEBUG(logger, "No markers found "); 
+
+		}
 
 		// Flip to plot back into the image 
 		flipY(midPoints, IplImage(imgDbg).height );
@@ -729,8 +1039,14 @@ int main( int argc, char ** argv )
 			int fontFace = FONT_HERSHEY_DUPLEX;
 			double fontScale = 1;
 
-			string message = boost::lexical_cast<string> (i);
-			putText( detectedPointsImage, message , cvPoint(markerRect.center.x-20,markerRect.center.y+10) ,fontFace, fontScale, CV_RGB(255,0,0) );
+			std::pair <std::multimap<int,int>::iterator, std::multimap<int,int>::iterator> ret;
+			ret = matchingMap.equal_range(i);
+			string message;
+			for (std::multimap<int,int>::iterator it=ret.first; it!=ret.second; ++it){
+				message.append( boost::lexical_cast<string> (it->second) ) ; 
+				message.append(" "); 
+			}
+			putText( detectedPointsImage, message , cvPoint(markerRect.center.x-20,markerRect.center.y+20) ,fontFace, fontScale, CV_RGB(255,0,0) );
 			
 		}
 		imwrite(debugImageName,detectedPointsImage); // save image 
