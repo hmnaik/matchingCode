@@ -27,7 +27,7 @@ Note* : The programme is supposed to take care of both the calculated and the or
 @param [In] : Center Points < < vec_gt > > or < < vec1 , vec 2 > >
 @param [out] : Invariant < <d_gt > >  or < < d1, d2, d3, d4 > > 
 */ 
-bool calculateConicDistanceInvariants(std::vector <std::vector <Point3d> > centerPoints, std::vector<std::vector<double>> &distanceInvariants);
+bool calculateConicDistanceInvariants(const std::vector <std::vector <Point3d> > &centerPoints, std::vector<std::vector<double>> &distanceInvariants);
 
 
 /*
@@ -36,4 +36,4 @@ Note* : The programme is supposed to take care
 @param [In] : Normals  < < sn_gt >  > or < < sn1, sn2 > >
 @param [out] : Invariant < < theta > >  or < < theta1, theta2, theta3, theta4 > > 
 */ 
-bool calculateConicAngleInvariants(std::vector <std::vector <Point3d> > surfaceNormals, std::vector<std::vector<double>> &angleInvariants);
+bool calculateConicAngleInvariants(const std::vector <std::vector <Point3d> > &surfaceNormals, std::vector<std::vector<double>> &angleInvariants);

@@ -34,9 +34,9 @@ double getAngle(Point3d vec1 , Point3d vec2){
 
 
 
-bool calculateConicDistanceInvariants(std::vector <std::vector <Point3d> > centerPoints, std::vector<std::vector<double>> &distanceInvariants){
+bool calculateConicDistanceInvariants(const std::vector <std::vector <Point3d> > &centerPoints, std::vector<std::vector<double>> &distanceInvariants){
 
-	// To calculate invariant of surface angles and 3D distances we need 2 conics
+		// To calculate invariant of surface angles and 3D distances we need 2 conics
 		// This functions calculates invariant of each point with respect to other points. 
 		// That is if we have point {P1,P2...... Pn}
 		std::vector<double> pairDistInvariant; 
@@ -110,7 +110,7 @@ bool calculateConicDistanceInvariants(std::vector <std::vector <Point3d> > cente
 	return TRUE; 
 }
 
-bool calculateConicAngleInvariants(std::vector <std::vector <Point3d> > surfaceNormals, std::vector<std::vector<double>> &angleInvariants){
+bool calculateConicAngleInvariants(const std::vector <std::vector <Point3d> > &surfaceNormals, std::vector<std::vector<double>> &angleInvariants){
 
 	// To calculate invariant of surface angles and 3D distances we need 2 conics
 	// This functions calculates invariant of each point with respect to other points. 

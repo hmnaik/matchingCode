@@ -139,11 +139,12 @@ void showDebugWindows(Mat imgGray, Mat imgBin, Mat imgDbg, std::string name, int
 	}
 }
 
-bool verifyTriplet(std::vector<std::vector<int>> indexMatching,
-	std::vector <std::vector <int> > calculatedPointPair,
-	std::vector <std::vector <int> > modelPointPair, 
-	Math::Vector<3> modelTriplet,
-	Math::Vector<3> imageTriplet){
+bool verifyTriplet(const std::vector<std::vector<int>> &indexMatching,
+	const std::vector <std::vector <int> > &calculatedPointPair,
+	const std::vector <std::vector <int> > &modelPointPair, 
+	const Math::Vector<3> &modelTriplet,
+	const Math::Vector<3> &imageTriplet,
+	int indexStatus = 0){
 
 
 		
@@ -154,7 +155,7 @@ bool verifyTriplet(std::vector<std::vector<int>> indexMatching,
 		imagePt2 = imageTriplet[1]; 
 		imagePt3 = imageTriplet[2]; 
 
-		for (int i = 0 ; i < indexMatching.size() ; i++ ){
+		for (int i = indexStatus ; i < indexMatching.size() ; i++ ){
 		
 			int modelPairID = indexMatching.at(i).at(0); // Represents an ID of model point pair 
 			int imagePairID = indexMatching.at(i).at(1); // Represents corresponding ID of image point pair
@@ -174,9 +175,9 @@ bool verifyTriplet(std::vector<std::vector<int>> indexMatching,
 	return false; 
 } 
 
-void filterPointPair( std::vector<std::vector<int>> indexMatching, 
-	std::vector <std::vector <int> > calculatedPointPair,
-	std::vector <std::vector <int> > modelPointPair,
+void filterPointPair( const std::vector<std::vector<int>> &indexMatching, 
+	const std::vector <std::vector <int> > &calculatedPointPair,
+	const std::vector <std::vector <int> > &modelPointPair,
 	std::vector<std::vector<int>> &modelImagePair, 
 	multimap<int ,int > &matchingMap){
 
@@ -265,8 +266,12 @@ void filterPointPair( std::vector<std::vector<int>> indexMatching,
 					if( (matchingMap.find(imagePt1) == matchingMap.end() ) // is present 
 							|| (matchingMap.find(imagePt2) == matchingMap.end() ) // or is present 
 							|| (matchingMap.find(imagePt3) == matchingMap.end() ) ) { // or is present 
-
-								if( verifyTriplet(indexMatching, calculatedPointPair, modelPointPair, modelTriplet, imageTriplet ) ) {
+								
+								// verification pair would only be present after primary pair and secondary pair 
+								// i = 0 ( 1005, 1008 ) and j = 5 (1005,1010) now verification pair K = (1008,1010) woulbe be obviously after j  
+								int indexStuatus = 0; 
+								indexStuatus = j +1 ; 
+								if( verifyTriplet(indexMatching, calculatedPointPair, modelPointPair, modelTriplet, imageTriplet , indexStuatus) ) {
 									LOG4CPP_INFO(logger, " Model triple : " << modelTriplet << ": Image triple : " << imageTriplet); 
 															
 									if (matchingMap.find(imagePt1) == matchingMap.end()) // if not present at all 
@@ -312,7 +317,7 @@ void filterPointPair( std::vector<std::vector<int>> indexMatching,
 
 }
 
-void getPairCombinations(std::vector <int> pointIDs, std::vector< std::vector <int> > &pairCombination){
+void getPairCombinations(const std::vector <int> &pointIDs, std::vector< std::vector <int> > &pairCombination){
 
 	int noOfPoints = pointIDs.size(); 
 	std::vector<int> tempPair; 
@@ -354,11 +359,11 @@ void getPairCombinations(int pointIDSize, std::vector< std::vector <int> > &pair
 
 }
 
-
-bool findMatchingPointPairs(std::vector<std::vector<double> >  calculatedDistInvariants,
-	std::vector<std::vector<double> > calculatedAngleInvariants,
-	std::vector<std::vector<double> >  modelDistInvariants,
-	std::vector< std::vector<double> > modelAngleInvariants,
+// passing reference of vector makes the job much faster 
+bool findMatchingPointPairs(const std::vector<std::vector<double> >  &calculatedDistInvariants,
+	const std::vector<std::vector<double> > &calculatedAngleInvariants,
+	const std::vector<std::vector<double> >  &modelDistInvariants,
+	const std::vector< std::vector<double> > &modelAngleInvariants,
 	std::vector<std::vector <int> > &indexMatching,
 	double distMatchingThresh = 20,
 	double angleMatchingThresh = 5 ){
@@ -543,8 +548,8 @@ bool readSettingsFile( std::string &filePath, CIRCULAR_MARKER_SETTINGS &markerDe
 }
 
 bool writeInvariantFile(std::string &fileName, 
-		std::vector <std::vector <double >> distInvariants, 
-		std::vector <std::vector <double >> angleInvariants, 
+		const std::vector <std::vector <double >> &distInvariants, 
+		const std::vector <std::vector <double >> &angleInvariants, 
 		double noOfPoints){
 		
 		ofstream outfile; 
@@ -697,7 +702,7 @@ int main( int argc, char ** argv )
 		modelInvariantFile = filePath.data();
 		modelInvariantFile.append("/modelInvariantData.csv"); // Add text for unique name : Path/InvariantData_		
 
-		getPairCombinations(modelPointIDs,modelPointPair); 
+		getPairCombinations(modelPointIDs.size(),modelPointPair); 
 
 		if(! calculateConicDistanceInvariants(modelPoints, modelDistInvariants)){
 			LOG4CPP_ERROR(logger,"Calculating Invariants Failed");
@@ -780,7 +785,7 @@ int main( int argc, char ** argv )
 		std::vector< std::vector < Point2f >> ellipseContours;
 		std::vector<CIRCULAR_MARKER_SETTINGS> detectionResults;
 		double t = (double) getTickCount(); // for time counting 		
-		Ubitrack::Math::Matrix < 3, 3 > intrinsicMatrix; 
+		Ubitrack::Math::Matrix < 3, 3 > intrinsicMatrix, intrinsic; 
 		std::vector <std::vector <Point3d> > surfaceNormals; 
 		std::vector <std::vector <Point3d> > centerPoints; 
 		std::vector<double> projectedRadius;
@@ -793,6 +798,23 @@ int main( int argc, char ** argv )
 		intrinsicMatrix(0,2) =  1286.415849;
 		intrinsicMatrix(1,2) = 918.451363;
 		intrinsicMatrix(0,1) = 0 ; intrinsicMatrix(1,0) = 0 ; intrinsicMatrix(2,0) = 0 ; intrinsicMatrix(2,1) = 0 ; 
+
+		//Util::readCalibFile( "calibration/virtual_setup/projection.cal", intrinsic );
+
+		
+
+		intrinsic(0,0) = 3615.516111 ; intrinsic(1,1) = 3615.663520 ; intrinsic(2,2) =  1 ;
+		intrinsic(0,2) =  1286.415849;
+		intrinsic(1,2) = 918.451363;
+		intrinsic(0,1) = 0 ; intrinsic(1,0) = 0 ; intrinsic(2,0) = 0 ; intrinsic(2,1) = 0 ; 
+
+		intrinsic(1,2) = img.cols - 1 - intrinsic(1,2);
+		// Convert principal point values from OpenCV (left-handed) to Ubitrack format (right-handed)
+		intrinsic(0,2) *= -1;
+		intrinsic(1,2) *= -1;
+		intrinsic(2,2) *= -1;
+
+
 
 		camCalib[0]=intrinsicMatrix(0,0);camCalib[1]=intrinsicMatrix(0,1);camCalib[2]=intrinsicMatrix(0,2);
 		camCalib[3]=intrinsicMatrix(1,0);camCalib[4]=intrinsicMatrix(1,1);camCalib[5]=intrinsicMatrix(1,2);
@@ -1013,13 +1035,48 @@ int main( int argc, char ** argv )
 			findMatchingPointPairs(calculatedDistInvariants,calculatedAngleInvariants,modelDistInvariants,modelAngleInvariants,indexMatching,distThresh,angleThresh);
 
 			// Filter the matching for final 2D-3D match result 
-			filterPointPair(indexMatching,calculatedPointPair,modelPointPair, modelImageMatchedPair, matchingMap ); 
+			
+			filterPointPair(indexMatching,calculatedPointPair,modelPointPair, modelImageMatchedPair, matchingMap); 
 		}
+
 
 		else{
 
 			LOG4CPP_DEBUG(logger, "No markers found "); 
 
+		}
+
+		std::vector<Math::Vector<3>> modelTest; 
+		std::vector<Math::Vector3> ImageTest; 
+		std::vector<Math::Vector<2>> imagePoints; 
+		for(int i = 0; i < midPoints.size() ; i++){
+		
+			if( matchingMap.find(i) != matchingMap.end() ){
+				int mappedModelPoint = matchingMap.find(i)->second; 			
+				ImageTest.push_back(Math::Vector3(centerPoints.at(i).at(0).x,centerPoints.at(i).at(0).y,centerPoints.at(i).at(0).z) );
+				modelTest.push_back(Math::Vector3(modelPoints.at(mappedModelPoint).at(0).x,modelPoints.at(mappedModelPoint).at(0).y,modelPoints.at(mappedModelPoint).at(0).z));
+				imagePoints.push_back(midPoints.at(i));
+			}
+		
+		}
+
+		// For pose with 3 points 
+		Math::Pose pose1 = Calibration::calculateAbsoluteOrientation(  modelTest, ImageTest );
+		double rms = Calibration::computeRms( pose1,modelTest,  ImageTest  );
+		Vision::drawPose( detectedPointsImage, pose1, intrinsic, 3, rms, 0, 0.008 );
+		LOG4CPP_INFO(logger,"pose1 " << pose1); 
+
+		double rms2 = 0 ;	
+		if(imagePoints.size() > 5 ) {
+			Math::ErrorPose pose2 = Ubitrack::Calibration::computePose(imagePoints,modelTest,intrinsic, rms2, true, Calibration::NONPLANAR_PROJECTION);
+
+			LOG4CPP_INFO(logger," pose2 "<<  pose2 ); 
+
+			Vision::drawPose( detectedPointsImage, pose2, intrinsic, 3, rms2, 0, 0.008 );
+		}
+		else{
+		
+			LOG4CPP_INFO(logger," Sorry no pose with No 6 point matching :-(   "); 
 		}
 
 		// Flip to plot back into the image 
@@ -1028,6 +1085,9 @@ int main( int argc, char ** argv )
 		t = ( (double)getTickCount() - t ) / (double)getTickFrequency();  
 		std::cout << "Found "<<midPoints.size() << " markers.\n";
 		std::cout << "Time Taken:  "<< t << " Secs .\n";
+
+	
+		
 
 
 		for(int i = 0 ; i < markerIndexPosition.size(); i++){
@@ -1042,11 +1102,12 @@ int main( int argc, char ** argv )
 			std::pair <std::multimap<int,int>::iterator, std::multimap<int,int>::iterator> ret;
 			ret = matchingMap.equal_range(i);
 			string message;
+			message.append(boost::lexical_cast<string> (i) );
 			for (std::multimap<int,int>::iterator it=ret.first; it!=ret.second; ++it){
-				message.append( boost::lexical_cast<string> (it->second) ) ; 
-				message.append(" "); 
+				message.append("#");
+				message.append(boost::lexical_cast<string>( modelPointIDs.at( (it->second) ) ) ) ;  
 			}
-			putText( detectedPointsImage, message , cvPoint(markerRect.center.x-20,markerRect.center.y+20) ,fontFace, fontScale, CV_RGB(255,0,0) );
+			putText( detectedPointsImage, message , cvPoint(markerRect.center.x+20,markerRect.center.y+20) ,fontFace, fontScale, CV_RGB(255,0,0) );
 			
 		}
 		imwrite(debugImageName,detectedPointsImage); // save image 
