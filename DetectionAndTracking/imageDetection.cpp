@@ -179,7 +179,9 @@ void filterPointPair( const std::vector<std::vector<int>> &indexMatching,
 	const std::vector <std::vector <int> > &calculatedPointPair,
 	const std::vector <std::vector <int> > &modelPointPair,
 	std::vector<std::vector<int>> &modelImagePair, 
-	multimap<int ,int > &matchingMap){
+	multimap<int ,int > &matchingMap,
+	std::vector<std::vector<Math::Vector3>>  &matchingTriplet,
+	Mat &matchingMat){
 
 	for(int i = 0; i < indexMatching.size() ; i++){
 			int model = indexMatching.at(i).at(0); 
@@ -193,6 +195,7 @@ void filterPointPair( const std::vector<std::vector<int>> &indexMatching,
 	
 		Math::Vector<3> modelTriplet; 
 		Math::Vector<3> imageTriplet; 
+		std::vector<Math::Vector3> triplet; 
 
 		for (int j = i+1 ; j < indexMatching.size() ; j ++ ) {
 		
@@ -262,35 +265,87 @@ void filterPointPair( const std::vector<std::vector<int>> &indexMatching,
 					imageTriplet[2] =(imagePt3); 
 
 
-					
-					if( (matchingMap.find(imagePt1) == matchingMap.end() ) // is present 
-							|| (matchingMap.find(imagePt2) == matchingMap.end() ) // or is present 
-							|| (matchingMap.find(imagePt3) == matchingMap.end() ) ) { // or is present 
+					// This check is invalid because no time there will be a triplet which is being repeated 
+					//if( (matchingMap.find(imagePt1) == matchingMap.end() ) // is present 
+					//		|| (matchingMap.find(imagePt2) == matchingMap.end() ) // or is present 
+					//		|| (matchingMap.find(imagePt3) == matchingMap.end() ) ) { // or is present 
 								
 								// verification pair would only be present after primary pair and secondary pair 
 								// i = 0 ( 1005, 1008 ) and j = 5 (1005,1010) now verification pair K = (1008,1010) woulbe be obviously after j  
+								
 								int indexStuatus = 0; 
 								indexStuatus = j +1 ; 
 								if( verifyTriplet(indexMatching, calculatedPointPair, modelPointPair, modelTriplet, imageTriplet , indexStuatus) ) {
 									LOG4CPP_INFO(logger, " Model triple : " << modelTriplet << ": Image triple : " << imageTriplet); 
-															
-									if (matchingMap.find(imagePt1) == matchingMap.end()) // if not present at all 
-										matchingMap.insert(std::pair<int,int>( imagePt1,modelPt1 ));
-									else if (matchingMap.find(imagePt1)->second != modelPt1) // if same key is not pushed 
-										matchingMap.insert(std::pair<int,int>( imagePt1,modelPt1 ));
+									triplet.clear(); // Clear the triplet 
+									triplet.push_back( modelTriplet) ; // Save model triplet 
+									triplet.push_back(imageTriplet); // Save image triplet 
+									
+									// Saving the whole triplet 
+									matchingTriplet.push_back(triplet); 
 
-									if(matchingMap.find(imagePt2) == matchingMap.end() ) // if not present at all 
-										matchingMap.insert(std::pair<int,int>( imagePt2,modelPt2 ));
-									else if (matchingMap.find(imagePt2)->second != modelPt2) // only if same key is not pushed 
-										matchingMap.insert(std::pair<int,int>( imagePt2,modelPt2 ));
+									// Insert all possible pair combination 
+									matchingMap.insert(std::pair<int,int>( imagePt1,modelPt1 ));
+									matchingMap.insert(std::pair<int,int>( imagePt2,modelPt2 ));
+									matchingMap.insert(std::pair<int,int>( imagePt3,modelPt3 ));
+
+									matchingMat.at<double>(imagePt1,modelPt1) = matchingMat.at<double>(imagePt1,modelPt1)+1;
+									matchingMat.at<double>(imagePt2,modelPt2) = matchingMat.at<double>(imagePt2,modelPt2)+1;
+									matchingMat.at<double>(imagePt3,modelPt3) = matchingMat.at<double>(imagePt3,modelPt3)+1;
 
 
-									if (matchingMap.find(imagePt3) == matchingMap.end() ) // if not present 
-										matchingMap.insert(std::pair<int,int>( imagePt3,modelPt3 ));
-									else if (matchingMap.find(imagePt3)->second != modelPt3) // if different value 
-										matchingMap.insert(std::pair<int,int>( imagePt3,modelPt3 ));
-								}
-					}
+									//std::pair <int , std::pair<int,int>> mapWithVotes ;
+									//std::pair<int,int> votingPair; 
+									//// if not present at all
+									//if (matchingMap.find(imagePt1) == matchingMap.end())  {
+									//	matchingMap.insert(std::pair<int,int>( imagePt1,modelPt1 ));
+									//	
+									//	// Saving :  <imagePoint, <modelPoint,votingScore>>
+									//	votingPair.first = modelPt1;
+									//	votingPair.second = 0; 
+									//	mapWithVotes.first = imagePt1; 
+									//	mapWithVotes.second = votingPair; 
+									//}
+
+									//else { 
+									//	// if present then check with existing key and give voting 
+									//	std::pair <std::multimap<int,int>::iterator, std::multimap<int,int>::iterator> ret;
+									//	ret = matchingMap.equal_range(imagePt1); 
+									//	
+									//	// Check if this key already exists 
+									//	for (std::multimap<int,int>::iterator it=ret.first; it!=ret.second; ++it){
+									//		if( it->second == modelPt1) {// if same key is not pushed 
+									//		
+									//		matchingMap.insert(std::pair<int,int>( imagePt1,modelPt1 ));
+									//	
+									//		}
+									//	}
+
+									//}
+
+									//if(matchingMap.find(imagePt2) == matchingMap.end() ) // if not present at all 
+									//	matchingMap.insert(std::pair<int,int>( imagePt2,modelPt2 ));
+									//else if (matchingMap.find(imagePt2)->second != modelPt2) // only if same key is not pushed 
+									//	matchingMap.insert(std::pair<int,int>( imagePt2,modelPt2 ));
+
+
+									//if (matchingMap.find(imagePt3) == matchingMap.end() ) // if not present 
+									//	matchingMap.insert(std::pair<int,int>( imagePt3,modelPt3 ));
+									//else if (matchingMap.find(imagePt3)->second != modelPt3) // if different value 
+									//	matchingMap.insert(std::pair<int,int>( imagePt3,modelPt3 ));
+
+
+
+
+								} // Triplet Verification 
+
+								
+					/*}
+					else {
+					
+						LOG4CPP_INFO(logger, " A triplet discovered again.  "); 
+					
+					}*/
 
 				} // assign model and image points for triplet 
 				// e.g. 0( 1005,1008) & 1(1004,1005) bin 01, not possible due to ascending scheme  
@@ -316,6 +371,51 @@ void filterPointPair( const std::vector<std::vector<int>> &indexMatching,
 
 
 }
+
+
+void createCorrespondenceMap( const std::vector<std::vector<Math::Vector3>>  &matchingTriplet, multimap<int ,int > &matchingMap, Mat& votingMatrix){
+
+	
+	
+	int modelPointSize= votingMatrix.cols ; 
+	int imagePointSize = votingMatrix.rows ; 
+		
+	for(int i = 0 ; i < imagePointSize ; i++ ){ 
+		std::pair <std::multimap<int,int>::iterator, std::multimap<int,int>::iterator> ret;
+		ret = matchingMap.equal_range(i); 
+		for (std::multimap<int,int>::iterator it=ret.first; it!=ret.second; ++it){
+
+			votingMatrix.at<double>(i,it->second) = votingMatrix.at<double>(i,it->second)+1; 
+		}
+	}
+	LOG4CPP_INFO(logger, "Matrix \n " << votingMatrix);
+
+	// Now clear the map 
+	matchingMap.clear();
+
+	
+	for(int i = 0 ; i < votingMatrix.rows; i++ ){
+	
+		int minVoteCount = 1; 
+		int matchingIndex = 0; 
+		int zero = 0; 
+		for (int j = 0; j < votingMatrix.cols ; j++){
+		
+			// Maximum voting 
+			if(minVoteCount < votingMatrix.at<double>(i,j) && votingMatrix.at<double>(i,j) != zero) { 
+				// give vote count 
+				minVoteCount = votingMatrix.at<double>(i,j);
+				matchingIndex = j; 	
+			}
+		}
+		if(matchingIndex != zero){
+			matchingMap.insert(std::pair<int,int>(i,matchingIndex));
+		}
+	}
+
+
+}
+
 
 void getPairCombinations(const std::vector <int> &pointIDs, std::vector< std::vector <int> > &pairCombination){
 
@@ -641,8 +741,10 @@ int main( int argc, char ** argv )
 	// filePath = "D:/Extend3D/Images/CircularBoard/MultipleMarkerNonSymmetric"; data3DFileName = "/3DData_9.txt";
 	//filePath = "D:/Extend3D/Images/CircularBoard/MultiSizeBoard"; 
 	//filePath = "D:/Extend3D/Images/CircularBoard/MultipleMarker2";
-	 filePath = "D:/Extend3D/Images/CarData12";  data3DFileName = "/CarModel3DData_12.txt";
+	 // filePath = "D:/Extend3D/Images/CarData12";  data3DFileName = "/CarModel3DData_12.txt";
 	/*filePath = "D:/Extend3D/Images/CarData5_8";*/ /*data3DFileName = "/CarModel3DData_5.txt";*/ /*data3DFileName = "/CarModel3DData_8.txt";*/
+	 // filePath = "D:/Extend3D/Images/CarData5_8/5_modified"; data3DFileName = "/CarModel3DData_5.txt"; 
+	  filePath = "D:/Extend3D/Images/CarData5_8/8_modified"; data3DFileName = "/CarModel3DData_8.txt";
 
 	boost::filesystem::path dtbFile (filePath);
 	if (!boost::filesystem::exists( dtbFile ) || !boost::filesystem::is_directory( dtbFile )) {
@@ -702,7 +804,8 @@ int main( int argc, char ** argv )
 		modelInvariantFile = filePath.data();
 		modelInvariantFile.append("/modelInvariantData.csv"); // Add text for unique name : Path/InvariantData_		
 
-		getPairCombinations(modelPointIDs.size(),modelPointPair); 
+		getPairCombinations(modelPointIDs.size(),modelPointPair); // Get combination with mapped IDs 
+		// getPairCombinations(modelPointIDs,modelPointPair);  // Get combination with natural ID 
 
 		if(! calculateConicDistanceInvariants(modelPoints, modelDistInvariants)){
 			LOG4CPP_ERROR(logger,"Calculating Invariants Failed");
@@ -1015,6 +1118,8 @@ int main( int argc, char ** argv )
 		int distThresh = 10; 
 		int angleThresh = 5 ; 
 		std::vector<std::vector<int>>  modelImageMatchedPair; 
+		std::vector<std::vector<Math::Vector3>>  matchingTriplet; 
+		
 
 		if( midPoints.size() != 0) {
 			getPairCombinations(midPoints.size(),calculatedPointPair); 
@@ -1035,8 +1140,16 @@ int main( int argc, char ** argv )
 			findMatchingPointPairs(calculatedDistInvariants,calculatedAngleInvariants,modelDistInvariants,modelAngleInvariants,indexMatching,distThresh,angleThresh);
 
 			// Filter the matching for final 2D-3D match result 
-			
-			filterPointPair(indexMatching,calculatedPointPair,modelPointPair, modelImageMatchedPair, matchingMap); 
+			// From given triplets finding the correspondence map 
+			Mat matchingMat = Mat::zeros(midPoints.size(),modelPoints.size(),CV_64F);
+
+			filterPointPair(indexMatching,calculatedPointPair,modelPointPair, modelImageMatchedPair, matchingMap, matchingTriplet, matchingMat); 
+			LOG4CPP_INFO(logger, "Matching Mat" << matchingMat ); 
+			// From given triplets finding the correspondence map 
+			Mat votingMatrix = Mat::zeros(midPoints.size(),modelPoints.size(),CV_64F);
+
+			createCorrespondenceMap(matchingTriplet, matchingMap, votingMatrix ); 
+	
 		}
 
 
@@ -1046,38 +1159,38 @@ int main( int argc, char ** argv )
 
 		}
 
-		std::vector<Math::Vector<3>> modelTest; 
-		std::vector<Math::Vector3> ImageTest; 
-		std::vector<Math::Vector<2>> imagePoints; 
-		for(int i = 0; i < midPoints.size() ; i++){
-		
-			if( matchingMap.find(i) != matchingMap.end() ){
-				int mappedModelPoint = matchingMap.find(i)->second; 			
-				ImageTest.push_back(Math::Vector3(centerPoints.at(i).at(0).x,centerPoints.at(i).at(0).y,centerPoints.at(i).at(0).z) );
-				modelTest.push_back(Math::Vector3(modelPoints.at(mappedModelPoint).at(0).x,modelPoints.at(mappedModelPoint).at(0).y,modelPoints.at(mappedModelPoint).at(0).z));
-				imagePoints.push_back(midPoints.at(i));
-			}
-		
-		}
+		//std::vector<Math::Vector<3>> modelTest; 
+		//std::vector<Math::Vector3> ImageTest; 
+		//std::vector<Math::Vector<2>> imagePoints; 
+		//for(int i = 0; i < midPoints.size() ; i++){
+		//
+		//	if( matchingMap.find(i) != matchingMap.end() ){
+		//		int mappedModelPoint = matchingMap.find(i)->second; 			
+		//		ImageTest.push_back(Math::Vector3(centerPoints.at(i).at(0).x,centerPoints.at(i).at(0).y,centerPoints.at(i).at(0).z) );
+		//		modelTest.push_back(Math::Vector3(modelPoints.at(mappedModelPoint).at(0).x,modelPoints.at(mappedModelPoint).at(0).y,modelPoints.at(mappedModelPoint).at(0).z));
+		//		imagePoints.push_back(midPoints.at(i));
+		//	}
+		//
+		//}
 
-		// For pose with 3 points 
-		Math::Pose pose1 = Calibration::calculateAbsoluteOrientation(  modelTest, ImageTest );
-		double rms = Calibration::computeRms( pose1,modelTest,  ImageTest  );
-		Vision::drawPose( detectedPointsImage, pose1, intrinsic, 3, rms, 0, 0.008 );
-		LOG4CPP_INFO(logger,"pose1 " << pose1); 
+		//// For pose with 3 points 
+		//Math::Pose pose1 = Calibration::calculateAbsoluteOrientation(  modelTest, ImageTest );
+		//double rms = Calibration::computeRms( pose1,modelTest,  ImageTest  );
+		//Vision::drawPose( detectedPointsImage, pose1, intrinsic, 3, rms, 0, 0.008 );
+		//LOG4CPP_INFO(logger,"pose1 " << pose1); 
 
-		double rms2 = 0 ;	
-		if(imagePoints.size() > 5 ) {
-			Math::ErrorPose pose2 = Ubitrack::Calibration::computePose(imagePoints,modelTest,intrinsic, rms2, true, Calibration::NONPLANAR_PROJECTION);
+		//double rms2 = 0 ;	
+		//if(imagePoints.size() > 5 ) {
+		//	Math::ErrorPose pose2 = Ubitrack::Calibration::computePose(imagePoints,modelTest,intrinsic, rms2, true, Calibration::NONPLANAR_PROJECTION);
 
-			LOG4CPP_INFO(logger," pose2 "<<  pose2 ); 
+		//	LOG4CPP_INFO(logger," pose2 "<<  pose2 ); 
 
-			Vision::drawPose( detectedPointsImage, pose2, intrinsic, 3, rms2, 0, 0.008 );
-		}
-		else{
-		
-			LOG4CPP_INFO(logger," Sorry no pose with No 6 point matching :-(   "); 
-		}
+		//	Vision::drawPose( detectedPointsImage, pose2, intrinsic, 3, rms2, 0, 0.008 );
+		//}
+		//else{
+		//
+		//	LOG4CPP_INFO(logger," Sorry no pose with No 6 point matching :-(   "); 
+		//}
 
 		// Flip to plot back into the image 
 		flipY(midPoints, IplImage(imgDbg).height );
@@ -1105,7 +1218,8 @@ int main( int argc, char ** argv )
 			message.append(boost::lexical_cast<string> (i) );
 			for (std::multimap<int,int>::iterator it=ret.first; it!=ret.second; ++it){
 				message.append("#");
-				message.append(boost::lexical_cast<string>( modelPointIDs.at( (it->second) ) ) ) ;  
+				message.append(boost::lexical_cast<string>( modelPointIDs.at( (it->second) ) ) ) ;  // When mapped model point ID used
+				// message.append(boost::lexical_cast<string>( (it->second) ) ) ;  // When direct model point ID are used 
 			}
 			putText( detectedPointsImage, message , cvPoint(markerRect.center.x+20,markerRect.center.y+20) ,fontFace, fontScale, CV_RGB(255,0,0) );
 			
