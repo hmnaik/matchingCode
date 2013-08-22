@@ -265,87 +265,33 @@ void filterPointPair( const std::vector<std::vector<int>> &indexMatching,
 					imageTriplet[2] =(imagePt3); 
 
 
-					// This check is invalid because no time there will be a triplet which is being repeated 
-					//if( (matchingMap.find(imagePt1) == matchingMap.end() ) // is present 
-					//		|| (matchingMap.find(imagePt2) == matchingMap.end() ) // or is present 
-					//		|| (matchingMap.find(imagePt3) == matchingMap.end() ) ) { // or is present 
-								
-								// verification pair would only be present after primary pair and secondary pair 
-								// i = 0 ( 1005, 1008 ) and j = 5 (1005,1010) now verification pair K = (1008,1010) woulbe be obviously after j  
-								
-								int indexStuatus = 0; 
-								indexStuatus = j +1 ; 
-								if( verifyTriplet(indexMatching, calculatedPointPair, modelPointPair, modelTriplet, imageTriplet , indexStuatus) ) {
-									LOG4CPP_INFO(logger, " Model triple : " << modelTriplet << ": Image triple : " << imageTriplet); 
-									triplet.clear(); // Clear the triplet 
-									triplet.push_back( modelTriplet) ; // Save model triplet 
-									triplet.push_back(imageTriplet); // Save image triplet 
-									
-									// Saving the whole triplet 
-									matchingTriplet.push_back(triplet); 
 
-									// Insert all possible pair combination 
-									matchingMap.insert(std::pair<int,int>( imagePt1,modelPt1 ));
-									matchingMap.insert(std::pair<int,int>( imagePt2,modelPt2 ));
-									matchingMap.insert(std::pair<int,int>( imagePt3,modelPt3 ));
+					// verification pair would only be present after primary pair and secondary pair 
+					// i = 0 ( 1005, 1008 ) and j = 5 (1005,1010) now verification pair K = (1008,1010) woulbe be obviously after j  
 
-									matchingMat.at<double>(imagePt1,modelPt1) = matchingMat.at<double>(imagePt1,modelPt1)+1;
-									matchingMat.at<double>(imagePt2,modelPt2) = matchingMat.at<double>(imagePt2,modelPt2)+1;
-									matchingMat.at<double>(imagePt3,modelPt3) = matchingMat.at<double>(imagePt3,modelPt3)+1;
+					int indexStuatus = 0; 
+					indexStuatus = j +1 ; 
+					if( verifyTriplet(indexMatching, calculatedPointPair, modelPointPair, modelTriplet, imageTriplet , indexStuatus) ) {
+						
+						LOG4CPP_INFO(logger, " Model triple : " << modelTriplet << ": Image triple : " << imageTriplet); 
+						triplet.clear(); // Clear the triplet 
+						triplet.push_back( modelTriplet) ; // Save model triplet 
+						triplet.push_back(imageTriplet); // Save image triplet 
 
+						// Saving the whole triplet 
+						matchingTriplet.push_back(triplet); 
 
-									//std::pair <int , std::pair<int,int>> mapWithVotes ;
-									//std::pair<int,int> votingPair; 
-									//// if not present at all
-									//if (matchingMap.find(imagePt1) == matchingMap.end())  {
-									//	matchingMap.insert(std::pair<int,int>( imagePt1,modelPt1 ));
-									//	
-									//	// Saving :  <imagePoint, <modelPoint,votingScore>>
-									//	votingPair.first = modelPt1;
-									//	votingPair.second = 0; 
-									//	mapWithVotes.first = imagePt1; 
-									//	mapWithVotes.second = votingPair; 
-									//}
+						// Insert all possible pair combination - Matrix does the job
+						/*matchingMap.insert(std::pair<int,int>( imagePt1,modelPt1 ));
+						matchingMap.insert(std::pair<int,int>( imagePt2,modelPt2 ));
+						matchingMap.insert(std::pair<int,int>( imagePt3,modelPt3 ));*/
 
-									//else { 
-									//	// if present then check with existing key and give voting 
-									//	std::pair <std::multimap<int,int>::iterator, std::multimap<int,int>::iterator> ret;
-									//	ret = matchingMap.equal_range(imagePt1); 
-									//	
-									//	// Check if this key already exists 
-									//	for (std::multimap<int,int>::iterator it=ret.first; it!=ret.second; ++it){
-									//		if( it->second == modelPt1) {// if same key is not pushed 
-									//		
-									//		matchingMap.insert(std::pair<int,int>( imagePt1,modelPt1 ));
-									//	
-									//		}
-									//	}
+						matchingMat.at<double>(imagePt1,modelPt1) = matchingMat.at<double>(imagePt1,modelPt1)+1;
+						matchingMat.at<double>(imagePt2,modelPt2) = matchingMat.at<double>(imagePt2,modelPt2)+1;
+						matchingMat.at<double>(imagePt3,modelPt3) = matchingMat.at<double>(imagePt3,modelPt3)+1;
 
-									//}
+					} // Triplet Verification 
 
-									//if(matchingMap.find(imagePt2) == matchingMap.end() ) // if not present at all 
-									//	matchingMap.insert(std::pair<int,int>( imagePt2,modelPt2 ));
-									//else if (matchingMap.find(imagePt2)->second != modelPt2) // only if same key is not pushed 
-									//	matchingMap.insert(std::pair<int,int>( imagePt2,modelPt2 ));
-
-
-									//if (matchingMap.find(imagePt3) == matchingMap.end() ) // if not present 
-									//	matchingMap.insert(std::pair<int,int>( imagePt3,modelPt3 ));
-									//else if (matchingMap.find(imagePt3)->second != modelPt3) // if different value 
-									//	matchingMap.insert(std::pair<int,int>( imagePt3,modelPt3 ));
-
-
-
-
-								} // Triplet Verification 
-
-								
-					/*}
-					else {
-					
-						LOG4CPP_INFO(logger, " A triplet discovered again.  "); 
-					
-					}*/
 
 				} // assign model and image points for triplet 
 				// e.g. 0( 1005,1008) & 1(1004,1005) bin 01, not possible due to ascending scheme  
@@ -379,39 +325,128 @@ void createCorrespondenceMap( const std::vector<std::vector<Math::Vector3>>  &ma
 	
 	int modelPointSize= votingMatrix.cols ; 
 	int imagePointSize = votingMatrix.rows ; 
-		
-	for(int i = 0 ; i < imagePointSize ; i++ ){ 
-		std::pair <std::multimap<int,int>::iterator, std::multimap<int,int>::iterator> ret;
-		ret = matchingMap.equal_range(i); 
-		for (std::multimap<int,int>::iterator it=ret.first; it!=ret.second; ++it){
 
-			votingMatrix.at<double>(i,it->second) = votingMatrix.at<double>(i,it->second)+1; 
-		}
-	}
-	LOG4CPP_INFO(logger, "Matrix \n " << votingMatrix);
+	// map<int,int> matchingMap; 
+	
+	Mat weightedMat = Mat::zeros(imagePointSize,modelPointSize,CV_64F) ; 
+	
+	
 
 	// Now clear the map 
 	matchingMap.clear();
 
-	
-	for(int i = 0 ; i < votingMatrix.rows; i++ ){
+	int maxVoting = *max_element(votingMatrix.begin<double>(),votingMatrix.end<double>());
+
+	for(int i = 0 ; i < votingMatrix.rows; i++ ){ // Selection row component for itration 
 	
 		int minVoteCount = 1; 
 		int matchingIndex = 0; 
 		int zero = 0; 
-		for (int j = 0; j < votingMatrix.cols ; j++){
+		bool matchFound = false; 
 		
-			// Maximum voting 
-			if(minVoteCount < votingMatrix.at<double>(i,j) && votingMatrix.at<double>(i,j) != zero) { 
-				// give vote count 
-				minVoteCount = votingMatrix.at<double>(i,j);
-				matchingIndex = j; 	
-			}
+		LOG4CPP_INFO(logger, " New row \n ");
+
+		double maxRowVote;
+		Point maxRowInd;
+		Mat rowMatrix = votingMatrix.row(i).clone();
+		minMaxLoc(rowMatrix, NULL , &maxRowVote, NULL,&maxRowInd); 
+		int count = std::count(rowMatrix.begin<double>(),rowMatrix.end<double>(),maxRowVote);
+		LOG4CPP_INFO(logger, " max indices " << maxRowInd.y << " - " << maxRowInd.x << ",  val : " << maxRowVote << ", Exisance " << count);
+		
+		double maxColVote;
+		Point maxIndCol;
+		Mat colMatrix = votingMatrix.col(maxRowInd.x).clone();
+		minMaxLoc(colMatrix, NULL , &maxColVote , NULL , &maxIndCol); 
+		LOG4CPP_INFO(logger, " max indices " << maxIndCol.y << " - " << maxIndCol.x << ",  val : " << maxColVote);
+		
+		int rowNos,colNos; 
+
+		rowNos = maxIndCol.y; 
+		colNos = maxRowInd.x; 
+
+		if( i == rowNos && maxRowVote == maxColVote){
+
+			if( 1 ){ // maxRowVote > maxVoting/2 ){
+			
+				matchingMap.insert(std::pair<int,int>(rowNos,colNos));
+				weightedMat.at<double>(i,matchingMap.find(i)->second) = 1;
+			
+			} 
+
+			
 		}
-		if(matchingIndex != zero){
-			matchingMap.insert(std::pair<int,int>(i,matchingIndex));
+
+		//for (int j = 0; j < votingMatrix.cols ; j++){ // Selecting column component for iteration in same row 
+		//	// Maximum voting along the row 
+		//	if(minVoteCount < votingMatrix.at<double>(i,j)) { 
+		//		// give vote count 
+		//		minVoteCount = votingMatrix.at<double>(i,j);
+		//		matchingIndex = j; 	
+		//		matchFound = true; 
+		//	}
+		//	// If same votes are existing, possible dual matching and we reject the point.  
+		//	else if( (minVoteCount == votingMatrix.at<double>(i,j)) && (matchFound == true) ) { 
+		//		// give vote count 	
+		//		matchFound = false; 
+		//	}
+		//}
+
+		//// If the match is found in a row, we have to check that particular column for presence ambiguity 
+		//if(matchFound){
+		//	// Now we check for the maxima component in the column 
+		//	Mat element = votingMatrix.col(matchingIndex);
+		//	int val = *max_element(element.begin<double>(),element.end<double>()); 
+		//	// element.at(max_element(element.begin<double>(),element.end<double>()); 
+		//
+		//	// If the point is never assigned to any other point 
+		//	if(matchingMap.find(i) == matchingMap.end()){ 
+		//		matchingMap.insert(std::pair<int,int>(i,matchingIndex));
+		//		weightedMat.at<double>(i,matchingMap.find(i)->second) = 1;
+		//	}
+
+		//	// Re-init matching to false for next iteration 
+		//	matchFound = false ; 
+		//}
+
+
+
+		//// If only a max voting component was found 
+		//if(matchFound){
+		//	// Reinit matching to false
+		//	matchFound = false ; 
+		//	// If the point is never assigned to any other point 
+		//	if(matchingMap.find(i) == matchingMap.end()){ 
+		//		matchingMap.insert(std::pair<int,int>(i,matchingIndex));
+		//		weightedMat.at<double>(i,matchingMap.find(i)->second) = 1;
+		//	}
+		//	// if point is already assigned then compare the votes 
+		//	else {  
+		//		
+		//		// Check which element has higher voting , i.e. columnwise check 
+		//		// If the new matching has higher voting then earlier select it or just keep old voting existing 
+		//		if( votingMatrix.at<double>(i,matchingIndex) > votingMatrix.at<double>(i,matchingMap.find(i)->second) ) {
+		//			
+		//			weightedMat.at<double>(i,matchingMap.find(i)->second) = 0; // Removing the old matching weight  
+		//			// change the mapping 
+		//			matchingMap.find(i)->second = matchingIndex; 
+		//			weightedMat.at<double>(i,matchingMap.find(i)->second) = 1; // Adding the new matching 
+		//		}
+		//	}
+		//} // Assign the mapping 
+
+		/*
+		for(int i = 0 ; i < imagePointSize ; i++ ){ 
+		std::pair <std::multimap<int,int>::iterator, std::multimap<int,int>::iterator> ret;
+		ret = matchingMap.equal_range(i); 
+		for (std::multimap<int,int>::iterator it=ret.first; it!=ret.second; ++it){
+
+		votingMatrix.at<double>(i,it->second) = votingMatrix.at<double>(i,it->second)+1; 
 		}
+		}
+		LOG4CPP_INFO(logger, "Matrix \n " << votingMatrix);*/
 	}
+
+	LOG4CPP_INFO(logger," Weighted Matrix " << weightedMat );
 
 
 }
@@ -741,10 +776,10 @@ int main( int argc, char ** argv )
 	// filePath = "D:/Extend3D/Images/CircularBoard/MultipleMarkerNonSymmetric"; data3DFileName = "/3DData_9.txt";
 	//filePath = "D:/Extend3D/Images/CircularBoard/MultiSizeBoard"; 
 	//filePath = "D:/Extend3D/Images/CircularBoard/MultipleMarker2";
-	 // filePath = "D:/Extend3D/Images/CarData12";  data3DFileName = "/CarModel3DData_12.txt";
+	  filePath = "D:/Extend3D/Images/CarData12";  data3DFileName = "/CarModel3DData_12.txt";
 	/*filePath = "D:/Extend3D/Images/CarData5_8";*/ /*data3DFileName = "/CarModel3DData_5.txt";*/ /*data3DFileName = "/CarModel3DData_8.txt";*/
-	 // filePath = "D:/Extend3D/Images/CarData5_8/5_modified"; data3DFileName = "/CarModel3DData_5.txt"; 
-	  filePath = "D:/Extend3D/Images/CarData5_8/8_modified"; data3DFileName = "/CarModel3DData_8.txt";
+	  // filePath = "D:/Extend3D/Images/CarData5_8/5_modified"; data3DFileName = "/CarModel3DData_5.txt"; 
+	 // filePath = "D:/Extend3D/Images/CarData5_8/8_modified"; data3DFileName = "/CarModel3DData_8.txt";
 
 	boost::filesystem::path dtbFile (filePath);
 	if (!boost::filesystem::exists( dtbFile ) || !boost::filesystem::is_directory( dtbFile )) {
@@ -1141,13 +1176,12 @@ int main( int argc, char ** argv )
 
 			// Filter the matching for final 2D-3D match result 
 			// From given triplets finding the correspondence map 
-			Mat matchingMat = Mat::zeros(midPoints.size(),modelPoints.size(),CV_64F);
-
-			filterPointPair(indexMatching,calculatedPointPair,modelPointPair, modelImageMatchedPair, matchingMap, matchingTriplet, matchingMat); 
-			LOG4CPP_INFO(logger, "Matching Mat" << matchingMat ); 
-			// From given triplets finding the correspondence map 
 			Mat votingMatrix = Mat::zeros(midPoints.size(),modelPoints.size(),CV_64F);
 
+			filterPointPair(indexMatching,calculatedPointPair,modelPointPair, modelImageMatchedPair, matchingMap, matchingTriplet, votingMatrix); 
+			LOG4CPP_INFO(logger, "Matching Mat \n " << votingMatrix ); 
+
+			// From given triplets finding the correspondence map 
 			createCorrespondenceMap(matchingTriplet, matchingMap, votingMatrix ); 
 	
 		}
@@ -1159,19 +1193,19 @@ int main( int argc, char ** argv )
 
 		}
 
-		//std::vector<Math::Vector<3>> modelTest; 
-		//std::vector<Math::Vector3> ImageTest; 
-		//std::vector<Math::Vector<2>> imagePoints; 
-		//for(int i = 0; i < midPoints.size() ; i++){
-		//
-		//	if( matchingMap.find(i) != matchingMap.end() ){
-		//		int mappedModelPoint = matchingMap.find(i)->second; 			
-		//		ImageTest.push_back(Math::Vector3(centerPoints.at(i).at(0).x,centerPoints.at(i).at(0).y,centerPoints.at(i).at(0).z) );
-		//		modelTest.push_back(Math::Vector3(modelPoints.at(mappedModelPoint).at(0).x,modelPoints.at(mappedModelPoint).at(0).y,modelPoints.at(mappedModelPoint).at(0).z));
-		//		imagePoints.push_back(midPoints.at(i));
-		//	}
-		//
-		//}
+		std::vector<Math::Vector<3>> modelTest; 
+		std::vector<Math::Vector3> ImageTest; 
+		std::vector<Math::Vector<2>> imagePoints; 
+		for(int i = 0; i < midPoints.size() ; i++){
+		
+			if( matchingMap.find(i) != matchingMap.end() ){
+				int mappedModelPoint = matchingMap.find(i)->second; 			
+				ImageTest.push_back(Math::Vector3(centerPoints.at(i).at(0).x,centerPoints.at(i).at(0).y,centerPoints.at(i).at(0).z) );
+				modelTest.push_back(Math::Vector3(modelPoints.at(mappedModelPoint).at(0).x,modelPoints.at(mappedModelPoint).at(0).y,modelPoints.at(mappedModelPoint).at(0).z));
+				imagePoints.push_back(midPoints.at(i));
+			}
+		
+		}
 
 		//// For pose with 3 points 
 		//Math::Pose pose1 = Calibration::calculateAbsoluteOrientation(  modelTest, ImageTest );
@@ -1179,18 +1213,18 @@ int main( int argc, char ** argv )
 		//Vision::drawPose( detectedPointsImage, pose1, intrinsic, 3, rms, 0, 0.008 );
 		//LOG4CPP_INFO(logger,"pose1 " << pose1); 
 
-		//double rms2 = 0 ;	
-		//if(imagePoints.size() > 5 ) {
-		//	Math::ErrorPose pose2 = Ubitrack::Calibration::computePose(imagePoints,modelTest,intrinsic, rms2, true, Calibration::NONPLANAR_PROJECTION);
+		double rms2 = 0 ;	
+		if(imagePoints.size() > 5 ) {
+			Math::ErrorPose pose2 = Ubitrack::Calibration::computePose(imagePoints,modelTest,intrinsic, rms2, true, Calibration::NONPLANAR_PROJECTION);
 
-		//	LOG4CPP_INFO(logger," pose2 "<<  pose2 ); 
+			LOG4CPP_INFO(logger," pose2 "<<  pose2 ); 
 
-		//	Vision::drawPose( detectedPointsImage, pose2, intrinsic, 3, rms2, 0, 0.008 );
-		//}
-		//else{
-		//
-		//	LOG4CPP_INFO(logger," Sorry no pose with No 6 point matching :-(   "); 
-		//}
+			Vision::drawPose( detectedPointsImage, pose2, intrinsic, 3, rms2, 0, 0.008 );
+		}
+		else{
+		
+			LOG4CPP_INFO(logger," Sorry no pose with No 6 point matching :-(   "); 
+		}
 
 		// Flip to plot back into the image 
 		flipY(midPoints, IplImage(imgDbg).height );
@@ -1218,8 +1252,10 @@ int main( int argc, char ** argv )
 			message.append(boost::lexical_cast<string> (i) );
 			for (std::multimap<int,int>::iterator it=ret.first; it!=ret.second; ++it){
 				message.append("#");
-				message.append(boost::lexical_cast<string>( modelPointIDs.at( (it->second) ) ) ) ;  // When mapped model point ID used
-				// message.append(boost::lexical_cast<string>( (it->second) ) ) ;  // When direct model point ID are used 
+				message.append(boost::lexical_cast<string>( (it->second) ) ) ;  // modelpoint index 
+				message.append("#");
+				message.append(boost::lexical_cast<string>( modelPointIDs.at( (it->second) ) ) ) ;  // prints mapped original ID 
+				
 			}
 			putText( detectedPointsImage, message , cvPoint(markerRect.center.x+20,markerRect.center.y+20) ,fontFace, fontScale, CV_RGB(255,0,0) );
 			
