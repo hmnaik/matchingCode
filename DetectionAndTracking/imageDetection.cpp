@@ -43,8 +43,8 @@
 #define DEBUG_WINDOWS 0
 #define DEBUG_IMAGE_ACTIVE 0
 // #define UNDISTORT_IMAGE 
+#define DEBUG_INVARIANT_DATA 0
 
-#define PROPERTY_TREE_FILE "D:/extend3d/Test_Img/database01/entzerrt_01.xml"
 
 using namespace cv;
 using namespace Ubitrack;
@@ -186,7 +186,7 @@ void filterPointPair( const std::vector<std::vector<int>> &indexMatching,
 	for(int i = 0; i < indexMatching.size() ; i++){
 			int model = indexMatching.at(i).at(0); 
 			int image = indexMatching.at(i).at(1); 
-			LOG4CPP_INFO(logger, " " << model <<  ": Model Pair " << modelPointPair.at(model).at(0) << "," << modelPointPair.at(model).at(1)
+			LOG4CPP_DEBUG(logger, " " << model <<  ": Model Pair " << modelPointPair.at(model).at(0) << "," << modelPointPair.at(model).at(1)
 				<< " " << image << " : Image Pair " << calculatedPointPair.at(image).at(0) << "," << calculatedPointPair.at(image).at(1) 
 				<< " : Normal " << indexMatching.at(i).at(2) ); 
 	}
@@ -273,7 +273,7 @@ void filterPointPair( const std::vector<std::vector<int>> &indexMatching,
 					indexStuatus = j +1 ; 
 					if( verifyTriplet(indexMatching, calculatedPointPair, modelPointPair, modelTriplet, imageTriplet , indexStuatus) ) {
 						
-						LOG4CPP_INFO(logger, " Model triple : " << modelTriplet << ": Image triple : " << imageTriplet); 
+						LOG4CPP_DEBUG(logger, " Model triple : " << modelTriplet << ": Image triple : " << imageTriplet); 
 						triplet.clear(); // Clear the triplet 
 						triplet.push_back( modelTriplet) ; // Save model triplet 
 						triplet.push_back(imageTriplet); // Save image triplet 
@@ -322,20 +322,18 @@ void filterPointPair( const std::vector<std::vector<int>> &indexMatching,
 void createCorrespondenceMap( const std::vector<std::vector<Math::Vector3>>  &matchingTriplet, multimap<int ,int > &matchingMap, Mat& votingMatrix){
 
 	
-	
 	int modelPointSize= votingMatrix.cols ; 
 	int imagePointSize = votingMatrix.rows ; 
 
 	// map<int,int> matchingMap; 
-	
 	Mat weightedMat = Mat::zeros(imagePointSize,modelPointSize,CV_64F) ; 
 	
-	
-
 	// Now clear the map 
 	matchingMap.clear();
 
-	int maxVoting = *max_element(votingMatrix.begin<double>(),votingMatrix.end<double>());
+	int votingSelectionThreshold =  *max_element(votingMatrix.begin<double>(),votingMatrix.end<double>());
+	votingSelectionThreshold /= 2; 
+	LOG4CPP_DEBUG(logger,  "Voting Selection threshold : " << votingSelectionThreshold);
 
 	for(int i = 0 ; i < votingMatrix.rows; i++ ){ // Selection row component for itration 
 	
@@ -344,109 +342,53 @@ void createCorrespondenceMap( const std::vector<std::vector<Math::Vector3>>  &ma
 		int zero = 0; 
 		bool matchFound = false; 
 		
-		LOG4CPP_INFO(logger, " New row \n ");
+		LOG4CPP_DEBUG(logger, " New row : " << i );
 
 		double maxRowVote;
 		Point maxRowInd;
+		// Taking the row from matrix 
 		Mat rowMatrix = votingMatrix.row(i).clone();
+		// Find max voting elelemt and its position 
+		// i.e  0 1 2 3 4 5 X 0 0 -> maxVal = X and pos is (6,1)
 		minMaxLoc(rowMatrix, NULL , &maxRowVote, NULL,&maxRowInd); 
-		int count = std::count(rowMatrix.begin<double>(),rowMatrix.end<double>(),maxRowVote);
-		LOG4CPP_INFO(logger, " max indices " << maxRowInd.y << " - " << maxRowInd.x << ",  val : " << maxRowVote << ", Exisance " << count);
+		// Checking existance of such maxima (To know if its unique or ambiguous) 
+		int maxRowCount = std::count(rowMatrix.begin<double>(),rowMatrix.end<double>(),maxRowVote);
+		LOG4CPP_DEBUG(logger, "Position:  max indices " << maxRowInd.y << " - " << maxRowInd.x << ",  val : " << maxRowVote << ", Exisance " << maxRowCount);
 		
 		double maxColVote;
-		Point maxIndCol;
+		Point maxColInd;
+		//Find maxima in particular column where row maxima exists , i.e col = xPos, (6) as per above example
 		Mat colMatrix = votingMatrix.col(maxRowInd.x).clone();
-		minMaxLoc(colMatrix, NULL , &maxColVote , NULL , &maxIndCol); 
-		LOG4CPP_INFO(logger, " max indices " << maxIndCol.y << " - " << maxIndCol.x << ",  val : " << maxColVote);
+		// Find maxima in column 
+		// Its a column matrix : [ 0 1 2 X 0 0 0 ]' , Maxima = X , Pos= (1,3)
+		minMaxLoc(colMatrix, NULL , &maxColVote , NULL , &maxColInd); 
+		// Count no of such maxima (To know if its unique or ambiguous) 
+		int maxColCount = std::count(colMatrix.begin<double>(),colMatrix.end<double>(),maxRowVote);
+		LOG4CPP_DEBUG(logger, "Position:  max indices " << maxColInd.y << " - " << maxColInd.x << ",  val : " << maxColVote << ", Existance" << maxColCount);
 		
 		int rowNos,colNos; 
-
-		rowNos = maxIndCol.y; 
+		// Row position of our requiered point 
+		rowNos = maxColInd.y; 
+		// Column position of our required point 
 		colNos = maxRowInd.x; 
 
-		if( i == rowNos && maxRowVote == maxColVote){
+		// If the matching is unique, max element found in row and column is only one position 
+		// and both row and column have only one existance of such vote , that wold mean this matching is unique among all matching matrix 
+		
+		if( i == rowNos && maxRowVote == maxColVote && maxRowCount==1 && maxColCount==1){
+			
+			if(  maxRowVote > votingSelectionThreshold ){
 
-			if( 1 ){ // maxRowVote > maxVoting/2 ){
-			
 				matchingMap.insert(std::pair<int,int>(rowNos,colNos));
-				weightedMat.at<double>(i,matchingMap.find(i)->second) = 1;
-			
+				weightedMat.at<double>(i,matchingMap.find(i)->second) = 1;	
+
 			} 
 
 			
 		}
-
-		//for (int j = 0; j < votingMatrix.cols ; j++){ // Selecting column component for iteration in same row 
-		//	// Maximum voting along the row 
-		//	if(minVoteCount < votingMatrix.at<double>(i,j)) { 
-		//		// give vote count 
-		//		minVoteCount = votingMatrix.at<double>(i,j);
-		//		matchingIndex = j; 	
-		//		matchFound = true; 
-		//	}
-		//	// If same votes are existing, possible dual matching and we reject the point.  
-		//	else if( (minVoteCount == votingMatrix.at<double>(i,j)) && (matchFound == true) ) { 
-		//		// give vote count 	
-		//		matchFound = false; 
-		//	}
-		//}
-
-		//// If the match is found in a row, we have to check that particular column for presence ambiguity 
-		//if(matchFound){
-		//	// Now we check for the maxima component in the column 
-		//	Mat element = votingMatrix.col(matchingIndex);
-		//	int val = *max_element(element.begin<double>(),element.end<double>()); 
-		//	// element.at(max_element(element.begin<double>(),element.end<double>()); 
-		//
-		//	// If the point is never assigned to any other point 
-		//	if(matchingMap.find(i) == matchingMap.end()){ 
-		//		matchingMap.insert(std::pair<int,int>(i,matchingIndex));
-		//		weightedMat.at<double>(i,matchingMap.find(i)->second) = 1;
-		//	}
-
-		//	// Re-init matching to false for next iteration 
-		//	matchFound = false ; 
-		//}
-
-
-
-		//// If only a max voting component was found 
-		//if(matchFound){
-		//	// Reinit matching to false
-		//	matchFound = false ; 
-		//	// If the point is never assigned to any other point 
-		//	if(matchingMap.find(i) == matchingMap.end()){ 
-		//		matchingMap.insert(std::pair<int,int>(i,matchingIndex));
-		//		weightedMat.at<double>(i,matchingMap.find(i)->second) = 1;
-		//	}
-		//	// if point is already assigned then compare the votes 
-		//	else {  
-		//		
-		//		// Check which element has higher voting , i.e. columnwise check 
-		//		// If the new matching has higher voting then earlier select it or just keep old voting existing 
-		//		if( votingMatrix.at<double>(i,matchingIndex) > votingMatrix.at<double>(i,matchingMap.find(i)->second) ) {
-		//			
-		//			weightedMat.at<double>(i,matchingMap.find(i)->second) = 0; // Removing the old matching weight  
-		//			// change the mapping 
-		//			matchingMap.find(i)->second = matchingIndex; 
-		//			weightedMat.at<double>(i,matchingMap.find(i)->second) = 1; // Adding the new matching 
-		//		}
-		//	}
-		//} // Assign the mapping 
-
-		/*
-		for(int i = 0 ; i < imagePointSize ; i++ ){ 
-		std::pair <std::multimap<int,int>::iterator, std::multimap<int,int>::iterator> ret;
-		ret = matchingMap.equal_range(i); 
-		for (std::multimap<int,int>::iterator it=ret.first; it!=ret.second; ++it){
-
-		votingMatrix.at<double>(i,it->second) = votingMatrix.at<double>(i,it->second)+1; 
-		}
-		}
-		LOG4CPP_INFO(logger, "Matrix \n " << votingMatrix);*/
 	}
-
-	LOG4CPP_INFO(logger," Weighted Matrix " << weightedMat );
+	
+	LOG4CPP_DEBUG(logger," Weighted Matrix \n " << weightedMat );
 
 
 }
@@ -747,6 +689,32 @@ bool writeInvariantFile(std::string &fileName,
 return TRUE; 
 }
 
+void drawPoseE3D ( cv::Mat & dbgImage, Math::Pose pose, Math::Matrix < 3, 3> projection, int thickness, double error, double minError, double maxError )
+{
+    // the corner points
+	static float points3D[ 4 ][ 3 ] = {
+		{ 0.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f },
+	};
+
+	// project points
+	Math::Vector< 3, double > p2D[ 4 ];
+	for ( int i = 0; i < 4; i++ )
+	{
+		p2D[ i] = projectPoint ( pose * (Math::Vector< 3, float >( points3D[ i ] ) * 20.0), projection, dbgImage.rows);
+	}
+
+	CvScalar colors[3] = {CV_RGB(255, 0, 0), CV_RGB(0, 255, 0), CV_RGB(0, 0, 255)};
+
+    // draw circle representing uncertainty
+	cv::circle ( dbgImage, cvPoint ( p2D[0](0), p2D[0](1)), cvRound( dbgImage.cols / 50.0 ),
+		cv::Scalar(error, minError, maxError), thickness); // Ubitrack::Vision::getGradientRampColor (error, minError, maxError)
+
+	// draw some lines
+	for ( int i = 1; i < 4; i++ ) {
+		cv::line ( dbgImage, cvPoint ( p2D[0](0), p2D[0](1)), cvPoint ( p2D[i](0), p2D[i](1)),
+			colors[i-1], thickness);
+	}
+}
 
 
 int main( int argc, char ** argv )
@@ -778,7 +746,7 @@ int main( int argc, char ** argv )
 	//filePath = "D:/Extend3D/Images/CircularBoard/MultipleMarker2";
 	  filePath = "D:/Extend3D/Images/CarData12";  data3DFileName = "/CarModel3DData_12.txt";
 	/*filePath = "D:/Extend3D/Images/CarData5_8";*/ /*data3DFileName = "/CarModel3DData_5.txt";*/ /*data3DFileName = "/CarModel3DData_8.txt";*/
-	  // filePath = "D:/Extend3D/Images/CarData5_8/5_modified"; data3DFileName = "/CarModel3DData_5.txt"; 
+	 //  filePath = "D:/Extend3D/Images/CarData5_8/5_modified"; data3DFileName = "/CarModel3DData_5.txt"; 
 	 // filePath = "D:/Extend3D/Images/CarData5_8/8_modified"; data3DFileName = "/CarModel3DData_8.txt";
 
 	boost::filesystem::path dtbFile (filePath);
@@ -848,9 +816,10 @@ int main( int argc, char ** argv )
 		if( !calculateConicAngleInvariants(modelPointNormals,modelAngleInvariants)) {
 			LOG4CPP_ERROR(logger,"Calculating Invariants Failed");
 		} 
-
-		if(!writeInvariantFile(modelInvariantFile,modelDistInvariants,modelAngleInvariants,modelPoints.size())	){
-			LOG4CPP_ERROR(logger,"Invariant File Writing Error ");
+		if(DEBUG_INVARIANT_DATA){
+			if(!writeInvariantFile(modelInvariantFile,modelDistInvariants,modelAngleInvariants,modelPoints.size())	){
+				LOG4CPP_ERROR(logger,"Invariant File Writing Error ");
+			}
 		}
 	}
 	// Reading marker settings for detection 
@@ -888,16 +857,19 @@ int main( int argc, char ** argv )
 		debugImageName = debugPath.data(); 
 		// Attach Debug to Path name i.e PATH/debug_
 		debugImageName.append("/debug_");
-
-
+		
+		/*
 		std::string testdebugPoseFile;
 		testdebugPoseFile.clear();
 		testdebugPoseFile = debugImageName.data();
 		testdebugPoseFile.append("_pose");
 		testdebugPoseFile.append(temp.string());
+		*/
 
-		// attach file name : final name would be PATH/debug_filename.png
+		// attach file name : final name would be PATH/debug_filename.jpg
+		temp.replace_extension(".jpg");
 		debugImageName.append(temp.string());
+
 
 		// Snippet to undistrot the image 
 #ifdef UNDISTORT_IMAGE
@@ -913,16 +885,13 @@ int main( int argc, char ** argv )
 		temp.replace_extension(".csv");	// filename.png -> filename.csv
 		invDataFileName.append(temp.string()); // file spacific name : Path/InvarinatData_filenam.csv
 		
-
-		
-
 		std::vector< Ubitrack::Math::Vector < 2 > > midPoints;		
 		std::vector< int > markerIndexPosition;
 		std::vector< bool > markerDetectionStatus;
 		std::vector< RotatedRect > ellipses;
 		std::vector< std::vector < Point2f >> ellipseContours;
 		std::vector<CIRCULAR_MARKER_SETTINGS> detectionResults;
-		double t = (double) getTickCount(); // for time counting 		
+				
 		Ubitrack::Math::Matrix < 3, 3 > intrinsicMatrix, intrinsic; 
 		std::vector <std::vector <Point3d> > surfaceNormals; 
 		std::vector <std::vector <Point3d> > centerPoints; 
@@ -938,9 +907,7 @@ int main( int argc, char ** argv )
 		intrinsicMatrix(0,1) = 0 ; intrinsicMatrix(1,0) = 0 ; intrinsicMatrix(2,0) = 0 ; intrinsicMatrix(2,1) = 0 ; 
 
 		//Util::readCalibFile( "calibration/virtual_setup/projection.cal", intrinsic );
-
-		
-
+	
 		intrinsic(0,0) = 3615.516111 ; intrinsic(1,1) = 3615.663520 ; intrinsic(2,2) =  1 ;
 		intrinsic(0,2) =  1286.415849;
 		intrinsic(1,2) = 918.451363;
@@ -952,8 +919,6 @@ int main( int argc, char ** argv )
 		intrinsic(1,2) *= -1;
 		intrinsic(2,2) *= -1;
 
-
-
 		camCalib[0]=intrinsicMatrix(0,0);camCalib[1]=intrinsicMatrix(0,1);camCalib[2]=intrinsicMatrix(0,2);
 		camCalib[3]=intrinsicMatrix(1,0);camCalib[4]=intrinsicMatrix(1,1);camCalib[5]=intrinsicMatrix(1,2);
 		camCalib[6]=intrinsicMatrix(2,0);camCalib[7]=intrinsicMatrix(2,1);camCalib[8]=intrinsicMatrix(2,2);
@@ -963,6 +928,7 @@ int main( int argc, char ** argv )
 			std::cout << "Error getting image"<<std::endl;
 			return -1;
 		}
+
 		LOG4CPP_TRACE(logger, " Intrinsic Matrix : \n " <<  intrinsicMatrix );
 #ifdef UNDISTORT_IMAGE
 		// Undistorting the image 
@@ -1000,8 +966,6 @@ int main( int argc, char ** argv )
 		//intrinsicMatrix(1,2) = 1297.478515625;
 		//intrinsicMatrix(0,1) = 0 ; intrinsicMatrix(1,0) = 0 ; intrinsicMatrix(2,0) = 0 ; intrinsicMatrix(2,1) = 0 ; 
 
-
-
 		//Calib data of cube , 30mm AVT(Assumption)  
 
 		// Util::readCalibFile("D:/Extend3D/Images/Nikon_Images/20130422_Nikon_Excite2013/20130422_nikon_finalShow.cal",intrinsicMatrix);
@@ -1022,8 +986,10 @@ int main( int argc, char ** argv )
 		//intrinsicMatrix(1,2) = 600;
 		//intrinsicMatrix(0,1) = 0 ; intrinsicMatrix(1,0) = 0 ; intrinsicMatrix(2,0) = 0 ; intrinsicMatrix(2,1) = 0 ; 
 
-
+		double markerDetectionTime = (double) getTickCount(); // for time counting 
 		findCircularMarkers(imgGray, imgDbg, imgTmp, midPoints, markerIndexPosition, ellipses, ellipseContours, markerSettings, detectionResults, true);
+		markerDetectionTime = ( (double)getTickCount() - markerDetectionTime ) / (double)getTickFrequency();  
+		
 
 		// To Calculate a demo pose 
 		double residual;
@@ -1031,7 +997,7 @@ int main( int argc, char ** argv )
 		std::vector < Ubitrack::Math::Vector3> worldSurfaceNormals; 
 		std::vector<Math::Vector<3,double> >projectedSurfaceNormals; 
 		
-
+		double invariantCalculation = (double) getTickCount(); // for time counting 
 		for ( int i= 0 ; i < markerIndexPosition.size() ; i++) {
 
 			std::vector<Point3d> surfaceNorm; 
@@ -1144,6 +1110,7 @@ int main( int argc, char ** argv )
 			centerPoints.push_back(centerPoint); 
 	
 		}
+		invariantCalculation = ( (double)getTickCount() - invariantCalculation ) / (double)getTickFrequency();  
 
 		std::vector< std::vector <double> > calculatedDistInvariants; 
 		std::vector< std::vector <double> > calculatedAngleInvariants; 
@@ -1155,8 +1122,9 @@ int main( int argc, char ** argv )
 		std::vector<std::vector<int>>  modelImageMatchedPair; 
 		std::vector<std::vector<Math::Vector3>>  matchingTriplet; 
 		
-
+		double matchingCalculation = (double) getTickCount();
 		if( midPoints.size() != 0) {
+
 			getPairCombinations(midPoints.size(),calculatedPointPair); 
 
 			if(! calculateConicDistanceInvariants(centerPoints, calculatedDistInvariants)){
@@ -1165,11 +1133,11 @@ int main( int argc, char ** argv )
 			if( !calculateConicAngleInvariants(surfaceNormals,calculatedAngleInvariants)) {
 				LOG4CPP_ERROR(logger,"Calculating Invariants Failed");
 			} 
-
-			if(!writeInvariantFile(invDataFileName,calculatedDistInvariants,calculatedAngleInvariants,centerPoints.size())	){
-				LOG4CPP_ERROR(logger,"Invariant File Writing Error ");
+			if(DEBUG_INVARIANT_DATA){
+				if(!writeInvariantFile(invDataFileName,calculatedDistInvariants,calculatedAngleInvariants,centerPoints.size())	){
+					LOG4CPP_ERROR(logger,"Invariant File Writing Error ");
+				}
 			}
-		
 
 			// Find matching based on invariants , Hypothesis for matching pairs 
 			findMatchingPointPairs(calculatedDistInvariants,calculatedAngleInvariants,modelDistInvariants,modelAngleInvariants,indexMatching,distThresh,angleThresh);
@@ -1179,68 +1147,94 @@ int main( int argc, char ** argv )
 			Mat votingMatrix = Mat::zeros(midPoints.size(),modelPoints.size(),CV_64F);
 
 			filterPointPair(indexMatching,calculatedPointPair,modelPointPair, modelImageMatchedPair, matchingMap, matchingTriplet, votingMatrix); 
-			LOG4CPP_INFO(logger, "Matching Mat \n " << votingMatrix ); 
+			LOG4CPP_DEBUG(logger, "Matching Mat \n " << votingMatrix ); 
 
 			// From given triplets finding the correspondence map 
 			createCorrespondenceMap(matchingTriplet, matchingMap, votingMatrix ); 
 	
 		}
-
-
 		else{
 
 			LOG4CPP_DEBUG(logger, "No markers found "); 
 
 		}
 
-		std::vector<Math::Vector<3>> modelTest; 
-		std::vector<Math::Vector3> ImageTest; 
+		matchingCalculation = ( (double)getTickCount() - matchingCalculation ) / (double)getTickFrequency();  
+		
+
+		 
+		// Pose Detection 
+		std::vector<Math::Vector<3>> model3DPoint; 
+		std::vector<Math::Vector3> Image3DPoint; 
 		std::vector<Math::Vector<2>> imagePoints; 
 		for(int i = 0; i < midPoints.size() ; i++){
-		
+
 			if( matchingMap.find(i) != matchingMap.end() ){
 				int mappedModelPoint = matchingMap.find(i)->second; 			
-				ImageTest.push_back(Math::Vector3(centerPoints.at(i).at(0).x,centerPoints.at(i).at(0).y,centerPoints.at(i).at(0).z) );
-				modelTest.push_back(Math::Vector3(modelPoints.at(mappedModelPoint).at(0).x,modelPoints.at(mappedModelPoint).at(0).y,modelPoints.at(mappedModelPoint).at(0).z));
+				Image3DPoint.push_back(Math::Vector3(-centerPoints.at(i).at(0).x,centerPoints.at(i).at(0).y,centerPoints.at(i).at(0).z) );
+				model3DPoint.push_back(Math::Vector3(modelPoints.at(mappedModelPoint).at(0).x,modelPoints.at(mappedModelPoint).at(0).y,modelPoints.at(mappedModelPoint).at(0).z));
 				imagePoints.push_back(midPoints.at(i));
 			}
-		
+
 		}
 
-		//// For pose with 3 points 
-		//Math::Pose pose1 = Calibration::calculateAbsoluteOrientation(  modelTest, ImageTest );
-		//double rms = Calibration::computeRms( pose1,modelTest,  ImageTest  );
-		//Vision::drawPose( detectedPointsImage, pose1, intrinsic, 3, rms, 0, 0.008 );
-		//LOG4CPP_INFO(logger,"pose1 " << pose1); 
+		double poseEstimationTime = (double)getTickCount();
+
+		// NOTE: For now we skip doing it the hard way. 
+		//if( model3DPoint.size() > 2) {
+		//	
+		//	try{
+		//	// For pose with 3 points 
+		//	Math::Pose poseAbsoluteOrentation = Calibration::calculateAbsoluteOrientation(  model3DPoint, Image3DPoint );
+		//	double rms = Calibration::computeRms( poseAbsoluteOrentation , model3DPoint,  Image3DPoint );
+		//	drawPoseE3D( detectedPointsImage, poseAbsoluteOrentation , intrinsic, 3, rms, 0, 0.008 );
+		//	LOG4CPP_INFO(logger,"Pose Absolute Orientation : " << poseAbsoluteOrentation); 
+		//	}
+		//	catch(std::exception&){
+		//		LOG4CPP_ERROR(logger, " Pose computation Error in absolute oritentation " );
+		//	}
+		//}
 
 		double rms2 = 0 ;	
 		if(imagePoints.size() > 5 ) {
-			Math::ErrorPose pose2 = Ubitrack::Calibration::computePose(imagePoints,modelTest,intrinsic, rms2, true, Calibration::NONPLANAR_PROJECTION);
 
-			LOG4CPP_INFO(logger," pose2 "<<  pose2 ); 
 
-			Vision::drawPose( detectedPointsImage, pose2, intrinsic, 3, rms2, 0, 0.008 );
+			try {
+
+				Math::ErrorPose pose2 = Ubitrack::Calibration::computePose(imagePoints,model3DPoint,intrinsic, rms2, true, Calibration::NONPLANAR_PROJECTION);
+				LOG4CPP_INFO(logger," 2D3D Pose Estimation : "<<  pose2 ); 
+				drawPoseE3D( detectedPointsImage, pose2, intrinsic, 3, rms2, 0, 0.008 );
+
+			} catch (std::exception& ) { // Ubitrack::Util::Exception& e
+				LOG4CPP_ERROR(logger, " Pose computation Error in 2D-3D pose estimation  " );
+			}
+	
 		}
 		else{
-		
+
 			LOG4CPP_INFO(logger," Sorry no pose with No 6 point matching :-(   "); 
 		}
 
 		// Flip to plot back into the image 
 		flipY(midPoints, IplImage(imgDbg).height );
+		poseEstimationTime = ( (double)getTickCount() - poseEstimationTime ) / (double)getTickFrequency(); 
 
-		t = ( (double)getTickCount() - t ) / (double)getTickFrequency();  
+
+
 		std::cout << "Found "<<midPoints.size() << " markers.\n";
-		std::cout << "Time Taken:  "<< t << " Secs .\n";
-
-	
-		
-
+		std::cout << "Time Taken:  "<< markerDetectionTime << " Secs.\n";
+		std::cout << "Time Taken for invariant calculation :  "<< invariantCalculation << " Secs .\n";
+		std::cout << "Time Taken for matching points :  "<< matchingCalculation << " Secs .\n";
+		std::cout << "Time Taken for pose estimation:  "<< poseEstimationTime << " Secs .\n";
 
 		for(int i = 0 ; i < markerIndexPosition.size(); i++){
 
 			RotatedRect markerRect = ellipses.at(markerIndexPosition.at(i)); 
-			circle( detectedPointsImage , cvPoint(markerRect.center.x,markerRect.center.y), 5, CV_RGB(0,255,0), 4 );
+			cv::Scalar colorMatched = CV_RGB(0,255,0);
+			cv::Scalar colorNonMatched = CV_RGB(255,0,0);
+			cv::Scalar colorText = CV_RGB(0,0,255);
+			
+			circle( detectedPointsImage , cvPoint(markerRect.center.x,markerRect.center.y), 5, colorNonMatched, 4 );
 			std::stringstream ss;
 			ss << i;
 			int fontFace = FONT_HERSHEY_DUPLEX;
@@ -1255,10 +1249,11 @@ int main( int argc, char ** argv )
 				message.append(boost::lexical_cast<string>( (it->second) ) ) ;  // modelpoint index 
 				message.append("#");
 				message.append(boost::lexical_cast<string>( modelPointIDs.at( (it->second) ) ) ) ;  // prints mapped original ID 
-				
+				circle( detectedPointsImage , cvPoint(markerRect.center.x,markerRect.center.y), 5, colorMatched, 4 );
 			}
-			putText( detectedPointsImage, message , cvPoint(markerRect.center.x+20,markerRect.center.y+20) ,fontFace, fontScale, CV_RGB(255,0,0) );
-			
+
+			putText( detectedPointsImage, message , cvPoint(markerRect.center.x+20,markerRect.center.y+20) ,fontFace, fontScale, colorText );
+
 		}
 		imwrite(debugImageName,detectedPointsImage); // save image 
 
@@ -1269,26 +1264,25 @@ int main( int argc, char ** argv )
 			imshow("Final Image",detectedPointsImage);
 
 		}
-	
+
 		if(show_debug_window ) { 
+
 			namedWindow("Bin", CV_GUI_EXPANDED);
 			imshow("Bin",imgTmp);
 			setMouseCallback( "Bin", my_mouse_callback);
-		
 
 			namedWindow("Debug", CV_GUI_EXPANDED);
 			imshow("Debug", imgDbg);
 			setMouseCallback( "Debug", my_mouse_callback);
-		
 
 			showDebugWindows(imgGray, imgTmp, imgDbg, "Mouse ", 200, 200, mx, my);
 		}
 		int key = waitKey(0);
-		
+
 		// Give control when either debug or only final image show is on 
 		if(show_debug_window || show_image_active){
-			
-		
+
+
 			if (key==(int)('+')) {
 				markerSettings.imageThresholdIntensityDifference+=1.0;
 				std::cout << markerSettings.imageThresholdIntensityDifference << "\n";
@@ -1301,19 +1295,19 @@ int main( int argc, char ** argv )
 			if (key==(int)('x')) {
 				if (!useCamera)
 					fileIt++;
-					imageIndex++;
+				imageIndex++;
 			}
 
 			if (key==(int)('y')) {
 				if (!useCamera)
 					fileIt--;
-					imageIndex--;
+				imageIndex--;
 			}
 
 			if (key==(int)(' ')) {
 				detect = !detect;
 			}
-		
+
 		}
 		// Automatic increment if everything is off 
 		if(!show_debug_window && !show_image_active){
