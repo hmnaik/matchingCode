@@ -36,7 +36,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/lexical_cast.hpp>
-#include "conic3DInvariantCalculation.h"
+#include <Math/conic3DInvariantCalculation.h>
 
 #include <Util/GlobFiles.h>
 
@@ -801,7 +801,7 @@ int main( int argc, char ** argv )
 	Mat imgGray, imgDbg, imgTmp;
 
 
-	bool useCamera = true;
+	bool useCamera = false;
 	bool detect = false; 
 	bool useBarcodeScanner = false; // HMN - Barcode on off 
 
@@ -816,24 +816,18 @@ int main( int argc, char ** argv )
 	/*filePath = argv[0]; 
 	data3DFileName = argv[1]; */
 
-	//filePath = "D:/Extend3D/TestProjects/DetectionAndTracking/DetectionAndTracking/TestFile";
-	//filePath = "TestFile";
-	//filePath = "D:/Extend3D/Images/Nikon_Images/circulartestimages";
-	//filePath = "L:/Softwares/Installed_Softwares/EXTEND3D/CircularMarkerTrackingUtility/images/wl_cube/left";
-	//filePath = "D:/Extend3D/Images/CircularBoard/CalibBoardImages";
+	
 	// filePath = "D:/Extend3D/Images/CircularBoard/4CircleBoard"; data3DFileName = "/3DData_9.txt";
 	// filePath = "D:/Extend3D/Images/CircularBoard/MultipleMarkerNonSymmetric"; data3DFileName = "/3DData_9.txt";
-	//filePath = "D:/Extend3D/Images/CircularBoard/MultiSizeBoard"; 
-	//filePath = "D:/Extend3D/Images/CircularBoard/MultipleMarker2";
-
+	
 	// Car Model Data Set 
-	// filePath = "D:/Extend3D/Images/CarData12";  data3DFileName = "/CarModel3DData_12.txt";
+	 filePath = "D:/Extend3D/Images/CarData12";  data3DFileName = "/CarModel3DData_12.txt";
 	// filePath = "D:/Extend3D/Images/CarData5_8/5_modified"; data3DFileName = "/CarModel3DData_5.txt"; 		
 	// filePath = "D:/Extend3D/Images/CarData5_8/8_modified"; data3DFileName = "/CarModel3DData_8.txt";
 
 	//Web Cam Data 
-	  filePath = "D:/Extend3D/Images/CarData5_8/WebCamData_5"; data3DFileName = "/CarModel3DData_5.txt"; 
-	// filePath = "D:/Extend3D/Images/CarData5_8/WebCamData_8"; data3DFileName = "/CarModel3DData_8.txt"; 
+	 // filePath = "D:/Extend3D/Images/CarData5_8/WebCamData_5"; data3DFileName = "/CarModel3DData_5.txt"; 
+	 // filePath = "D:/Extend3D/Images/CarData5_8/WebCamData_8"; data3DFileName = "/CarModel3DData_8.txt"; 
 	// filePath = "D:/Extend3D/Images/CarData12/WebCamData_12";  data3DFileName = "/CarModel3DData_12.txt";
 
 	
@@ -849,8 +843,10 @@ int main( int argc, char ** argv )
 
 	if(useCamera){
 
+		// VideoCapture
 		capture = cvCaptureFromCAM( CV_CAP_ANY );
-		if ( !capture ) {
+		
+		if ( !capture) {
 			fprintf( stderr, "ERROR: capture is NULL \n" );
 			getchar();
 			return -1;
@@ -929,32 +925,6 @@ int main( int argc, char ** argv )
 	std::string settingsFilePath = "Settings";
 	CIRCULAR_MARKER_SETTINGS markerSettings = Ubitrack::Vision::CircularMarkerDefaults::defaultCircularMarkerSettings; 
 
-
-	// Window list
-	//std::vector<int> openWindows(100);
-	//std::fill(openWindows.begin(), openWindows.end(), 0);
-
-
-	//while ( 1 ) {
-	//	// Get one frame
-	//	// IplImage* frame = cvQueryFrame( capture );
-	//	Mat frame = cvQueryFrame(capture);
-	//	if ( frame.empty() ) {
-	//		fprintf( stderr, "ERROR: frame is null...\n" );
-	//		getchar();
-	//		break;
-	//	}
-	//	imshow( "mywindow", frame );
-	//	// Do not release the frame!
-
-	//	if ( (cvWaitKey(10) & 255) == 27 ) break;
-	//}
-
-	//cvReleaseCapture( &capture );
-	//   cvDestroyWindow( "mywindow" );
-
-
-
 	Mat img; 
 	// Iterate over images 
 	while ( imageIndex < noOfFiles ||  useCamera ) {
@@ -966,7 +936,7 @@ int main( int argc, char ** argv )
 
 			Mat frame = cvQueryFrame(capture);
 			if ( frame.empty() ) {
-				fprintf( stderr, "ERROR: frame is null...\n" );
+				LOG4CPP_ERROR(logger,"Camera Frame was not captured ");
 				getchar();
 				break;
 			}
@@ -1027,35 +997,29 @@ int main( int argc, char ** argv )
 		double camCalib[9]; 
 		// IDS Camera : 12/07/2013	
 		// Undistortion Data 
-		//double dist[4]; 
-		//dist[0]= -0.231714; dist[1]=0.196694; dist[2]=0.000500; dist[3]=0.000067 ;  // IDS:Camera 
-		//Mat distCoef = Mat(4,1,CV_64F,dist); 
-		//
-		//// Calibration used for ellipse manipulation : 
-		//intrinsicMatrix(0,0) = 3615.516111 ; intrinsicMatrix(1,1) = 3615.663520 ; intrinsicMatrix(2,2) =  1 ;
-		//intrinsicMatrix(0,2) =  1286.415849;
-		//intrinsicMatrix(1,2) = 918.451363;
-		//intrinsicMatrix(0,1) = 0 ; intrinsicMatrix(1,0) = 0 ; intrinsicMatrix(2,0) = 0 ; intrinsicMatrix(2,1) = 0 ; 
-
-		//// Calibration used for pose estimation : 
-		//intrinsic(0,0) = 3615.516111 ; intrinsic(1,1) = 3615.663520 ; intrinsic(2,2) =  1 ;
-		//intrinsic(0,2) =  1286.415849;
-		//intrinsic(1,2) = 918.451363;
-		//intrinsic(0,1) = 0 ; intrinsic(1,0) = 0 ; intrinsic(2,0) = 0 ; intrinsic(2,1) = 0 ; 
-
+		
+		double dist[4]; 
+		dist[0]= -0.231714; dist[1]=0.196694; dist[2]=0.000500; dist[3]=0.000067 ;  // IDS:Camera 
+		Mat distCoef = Mat(4,1,CV_64F,dist); 
+		
+		// Calibration used for ellipse manipulation : 
+		intrinsicMatrix(0,0) = 3615.516111 ; intrinsicMatrix(1,1) = 3615.663520 ; intrinsicMatrix(2,2) =  1 ;
+		intrinsicMatrix(0,2) =  1286.415849;
+		intrinsicMatrix(1,2) = 918.451363;
+		intrinsicMatrix(0,1) = 0 ; intrinsicMatrix(1,0) = 0 ; intrinsicMatrix(2,0) = 0 ; intrinsicMatrix(2,1) = 0 ; 
 
 		// Web Camera Camera : 29/08/2013	
 		// Undistortion Data 
-		double dist[8]; 
-		dist[0]= -2.8964658886681427e-002; dist[1]=1.5969643546717007e+000; dist[2]=9.3322984910516309e-003 ; dist[3]= -8.9803557598603235e-004 ;  
-		dist[4]= 1.7373169396410364e+000; dist[5]=  6.8559427362531690e-003; dist[6]=1.4458907155695153e+000 ; dist[7]=  2.0950517498584000e+000 ;  
-		Mat distCoef = Mat(8,1,CV_64F,dist); 
+		//double dist[8]; 
+		//dist[0]= -2.8964658886681427e-002; dist[1]=1.5969643546717007e+000; dist[2]=9.3322984910516309e-003 ; dist[3]= -8.9803557598603235e-004 ;  
+		//dist[4]= 1.7373169396410364e+000; dist[5]=  6.8559427362531690e-003; dist[6]=1.4458907155695153e+000 ; dist[7]=  2.0950517498584000e+000 ;  
+		//Mat distCoef = Mat(8,1,CV_64F,dist); 
 
-		// Calibration used for ellipse manipulation : 
-		intrinsicMatrix(0,0) = 6.6157208286646198e+002 ; intrinsicMatrix(1,1) = 6.6381289761786650e+002 ; intrinsicMatrix(2,2) =  1 ;
-		intrinsicMatrix(0,2) =  3.3651379806376451e+002;
-		intrinsicMatrix(1,2) = 2.4818496341595619e+002;
-		intrinsicMatrix(0,1) = 0 ; intrinsicMatrix(1,0) = 0 ; intrinsicMatrix(2,0) = 0 ; intrinsicMatrix(2,1) = 0 ; 
+		//// Calibration used for ellipse manipulation : 
+		//intrinsicMatrix(0,0) = 6.6157208286646198e+002 ; intrinsicMatrix(1,1) = 6.6381289761786650e+002 ; intrinsicMatrix(2,2) =  1 ;
+		//intrinsicMatrix(0,2) =  3.3651379806376451e+002;
+		//intrinsicMatrix(1,2) = 2.4818496341595619e+002;
+		//intrinsicMatrix(0,1) = 0 ; intrinsicMatrix(1,0) = 0 ; intrinsicMatrix(2,0) = 0 ; intrinsicMatrix(2,1) = 0 ; 
 
 
 		// Calibration to be used for Pose Estimation 
@@ -1090,9 +1054,11 @@ int main( int argc, char ** argv )
 #else if
 		LOG4CPP_INFO(logger, "!!- No undistortion !!"  );
 #endif
-
-		Mat unDist = img.clone();
-		undistort(unDist,img,cameraMatrix,distCoef);
+		if(useCamera){
+			LOG4CPP_INFO(logger, "!!- Using Live Camera ... Undistorting !! "  );
+			Mat unDist = img.clone();
+			undistort(unDist,img,cameraMatrix,distCoef);
+		}
 		// Convert to grayscale
 		if (img.type()!=CV_8U)
 			cvtColor(img, imgGray, CV_RGB2GRAY);
@@ -1335,7 +1301,7 @@ int main( int argc, char ** argv )
 		Math::ErrorPose pose2; 
 		bool gotPose = false; 
 
-		if(imagePoints.size() > 2 ) {
+		if(imagePoints.size() > 4 ) {
 
 
 			try {
